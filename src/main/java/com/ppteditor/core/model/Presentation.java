@@ -77,6 +77,10 @@ public class Presentation implements Cloneable {
         }
     }
     
+    public void insertSlide(int index, Slide slide) {
+        addSlide(index, slide);
+    }
+    
     public void removeSlide(int index) {
         if (index >= 0 && index < slides.size()) {
             slides.remove(index);

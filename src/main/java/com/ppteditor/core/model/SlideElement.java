@@ -11,7 +11,7 @@ import java.util.UUID;
  * 
  * @param <T> 样式配置类型
  */
-public abstract class SlideElement<T extends ElementStyle> implements Cloneable {
+public abstract class SlideElement<T extends ElementStyle> implements Cloneable, java.io.Serializable {
     
     @Serializable(required = true)
     protected String id;
@@ -37,8 +37,8 @@ public abstract class SlideElement<T extends ElementStyle> implements Cloneable 
     @Serializable
     protected String hyperlink; // 超链接
     
-    protected boolean selected;
-    protected boolean locked;
+    protected transient boolean selected;
+    protected transient boolean locked;
     
     public SlideElement(ElementType type) {
         this.id = UUID.randomUUID().toString();
@@ -54,6 +54,11 @@ public abstract class SlideElement<T extends ElementStyle> implements Cloneable 
     public abstract void render(Graphics2D g2d);
     public abstract T createDefaultStyle();
     public abstract Rectangle getBounds();
+    
+    // 获取简单的边界框信息，避免序列化时的循环引用
+    public Rectangle getSimpleBounds() {
+        return new Rectangle((int)x, (int)y, (int)width, (int)height);
+    }
     public abstract boolean contains(Point point);
     
     // 模板方法模式 - 渲染流程

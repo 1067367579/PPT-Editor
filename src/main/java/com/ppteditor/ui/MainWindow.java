@@ -2,12 +2,16 @@ package com.ppteditor.ui;
 
 import com.ppteditor.PPTEditorApplication;
 import com.ppteditor.core.command.CommandManager;
+import com.ppteditor.core.model.Presentation;
+import com.ppteditor.core.io.PresentationFileManager;
+import com.ppteditor.core.io.PresentationExporter;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
+import java.io.File;
 
 /**
  * 主窗口类
@@ -15,8 +19,8 @@ import java.awt.event.KeyEvent;
  */
 public class MainWindow extends JFrame {
     
-    private static final int DEFAULT_WIDTH = 1200;
-    private static final int DEFAULT_HEIGHT = 800;
+    private static final int DEFAULT_WIDTH = 1400;
+    private static final int DEFAULT_HEIGHT = 900;
     
     // UI组件
     private JMenuBar menuBar;
@@ -26,11 +30,19 @@ public class MainWindow extends JFrame {
     
     // 核心组件
     private CommandManager commandManager;
+    private SlideCanvas slideCanvas;
+    private SlidePanel slidePanel;
+    private PropertyPanel propertyPanel;
+    private TemplatePanel templatePanel;
+    private Presentation currentPresentation;
+    private PresentationFileManager fileManager;
+    private PresentationExporter exporter;
     
     public MainWindow() {
         super(PPTEditorApplication.AppInfo.getFullName());
         
         this.commandManager = CommandManager.getInstance();
+        this.exporter = new PresentationExporter();
         
         initializeUI();
         setupEventHandlers();
@@ -41,7 +53,12 @@ public class MainWindow extends JFrame {
         setLocationRelativeTo(null); // 居中显示
         
         // 设置最小尺寸
-        setMinimumSize(new Dimension(800, 600));
+        setMinimumSize(new Dimension(1200, 800));
+        
+        // 延迟调整布局（确保组件都已创建）
+        SwingUtilities.invokeLater(() -> {
+            adjustLayoutOnResize();
+        });
     }
     
     private void initializeUI() {
@@ -236,13 +253,98 @@ public class MainWindow extends JFrame {
     
     private void createContentPanel() {
         contentPanel = new JPanel(new BorderLayout());
-        contentPanel.setBackground(Color.LIGHT_GRAY);
         
-        // 临时添加一些内容
-        JLabel label = new JLabel("PPT编辑器界面", JLabel.CENTER);
-        label.setFont(new Font("微软雅黑", Font.BOLD, 24));
-        label.setForeground(Color.DARK_GRAY);
-        contentPanel.add(label, BorderLayout.CENTER);
+        // 初始化核心组件
+        slideCanvas = new SlideCanvas();
+        slidePanel = new SlidePanel();
+        propertyPanel = new PropertyPanel();
+        templatePanel = new TemplatePanel(this);
+        
+        // 设置组件的最小尺寸，确保可见性
+        slidePanel.setMinimumSize(new Dimension(180, 250));
+        templatePanel.setMinimumSize(new Dimension(180, 200));
+        propertyPanel.setMinimumSize(new Dimension(250, 400));
+        slideCanvas.setMinimumSize(new Dimension(600, 400));
+        
+        // 设置首选尺寸
+        slidePanel.setPreferredSize(new Dimension(200, 350));
+        templatePanel.setPreferredSize(new Dimension(200, 250));
+        propertyPanel.setPreferredSize(new Dimension(280, 600));
+        
+        // 创建中央画布区域（带滚动条）
+        JScrollPane canvasScrollPane = new JScrollPane(slideCanvas);
+        canvasScrollPane.setMinimumSize(new Dimension(600, 400));
+        canvasScrollPane.setPreferredSize(new Dimension(800, 450));
+        canvasScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        canvasScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        
+        // 创建左侧面板（幻灯片面板 + 模板面板）
+        JSplitPane leftSidePanel = new JSplitPane(JSplitPane.VERTICAL_SPLIT, slidePanel, templatePanel);
+        leftSidePanel.setResizeWeight(0.6); // 幻灯片面板占60%空间
+        leftSidePanel.setDividerSize(4);
+        leftSidePanel.setDividerLocation(350);
+        leftSidePanel.setOneTouchExpandable(true);
+        leftSidePanel.setContinuousLayout(true);
+        
+        // 创建左侧分割面板（左侧面板 + 画布）
+        JSplitPane leftSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftSidePanel, canvasScrollPane);
+        leftSplitPane.setResizeWeight(0.0); // 左侧固定比例
+        leftSplitPane.setDividerSize(6);
+        leftSplitPane.setDividerLocation(220);
+        leftSplitPane.setOneTouchExpandable(true);
+        leftSplitPane.setContinuousLayout(true);
+        
+        // 创建主分割面板（左侧+画布 vs 属性面板）
+        JSplitPane mainSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftSplitPane, propertyPanel);
+        mainSplitPane.setResizeWeight(0.8); // 左侧占80%，属性面板占20%
+        mainSplitPane.setDividerSize(6);
+        mainSplitPane.setOneTouchExpandable(true);
+        mainSplitPane.setContinuousLayout(true);
+        
+        // 根据窗口大小动态设置分割位置
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                adjustLayoutOnResize();
+            }
+        });
+        
+        contentPanel.add(mainSplitPane, BorderLayout.CENTER);
+        
+        // 设置事件处理
+        setupComponentInteractions();
+    }
+    
+    private void setupComponentInteractions() {
+        // 画布选择变化时更新属性面板
+        slideCanvas.setOnSelectionChanged(() -> {
+            propertyPanel.setSelectedElements(slideCanvas.getSelectedElements());
+            updateStatus("选中了 " + slideCanvas.getSelectedElements().size() + " 个元素");
+        });
+        
+        // 幻灯片切换时更新画布
+        slidePanel.setOnSlideSelected(() -> {
+            if (currentPresentation != null) {
+                slideCanvas.setSlide(currentPresentation.getCurrentSlide());
+                updateStatus("切换到: " + currentPresentation.getCurrentSlide().getName());
+            }
+        });
+        
+        // 属性修改时刷新画布
+        propertyPanel.setOnElementChanged(() -> {
+            slideCanvas.repaint();
+            slidePanel.updateSlideList();
+        });
+        
+        // 设置对齐回调
+        propertyPanel.setAlignmentCallbacks(
+            () -> slideCanvas.alignLeft(),
+            () -> slideCanvas.alignRight(),
+            () -> slideCanvas.alignTop(),
+            () -> slideCanvas.alignBottom(),
+            () -> slideCanvas.alignCenterHorizontal(),
+            () -> slideCanvas.alignCenterVertical()
+        );
     }
     
     private void createStatusBar() {
@@ -267,37 +369,220 @@ public class MainWindow extends JFrame {
     
     // 菜单动作方法
     private void newPresentation() {
+        currentPresentation = new Presentation("新建演示文稿");
+        slidePanel.setPresentation(currentPresentation);
+        slideCanvas.setSlide(currentPresentation.getCurrentSlide());
         updateStatus("创建新演示文稿");
-        // TODO: 实现新建功能
     }
     
     private void openPresentation() {
-        updateStatus("打开演示文稿");
-        // TODO: 实现打开功能
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("打开演示文稿");
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
+            @Override
+            public boolean accept(File f) {
+                return f.isDirectory() || PresentationFileManager.isSupportedFile(f);
+            }
+            
+            @Override
+            public String getDescription() {
+                return "PPT编辑器文件 (*" + PresentationFileManager.getRecommendedExtension() + ")";
+            }
+        });
+        
+        int result = fileChooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            try {
+                currentPresentation = PresentationFileManager.loadPresentation(selectedFile);
+                slidePanel.setPresentation(currentPresentation);
+                slideCanvas.setSlide(currentPresentation.getCurrentSlide());
+                updateStatus("打开演示文稿: " + selectedFile.getName());
+                setTitle(PPTEditorApplication.AppInfo.getFullName() + " - " + selectedFile.getName());
+                
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, 
+                    "无法打开文件: " + e.getMessage(), 
+                    "错误", 
+                    JOptionPane.ERROR_MESSAGE);
+                updateStatus("打开文件失败");
+            }
+        }
     }
     
     private void savePresentation() {
-        updateStatus("保存演示文稿");
-        // TODO: 实现保存功能
+        if (currentPresentation == null) {
+            newPresentation();
+            return;
+        }
+        
+        String filePath = currentPresentation.getFilePath();
+        if (filePath == null || filePath.isEmpty()) {
+            saveAsPresentation();
+            return;
+        }
+        
+        try {
+            PresentationFileManager.savePresentation(currentPresentation, new File(filePath));
+            updateStatus("保存成功: " + new File(filePath).getName());
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, 
+                "保存失败: " + e.getMessage(), 
+                "错误", 
+                JOptionPane.ERROR_MESSAGE);
+            updateStatus("保存失败");
+        }
     }
     
     private void saveAsPresentation() {
-        updateStatus("另存为演示文稿");
-        // TODO: 实现另存为功能
+        if (currentPresentation == null) {
+            newPresentation();
+            return;
+        }
+        
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("另存为");
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
+            @Override
+            public boolean accept(File f) {
+                return f.isDirectory() || PresentationFileManager.isSupportedFile(f);
+            }
+            
+            @Override
+            public String getDescription() {
+                return "PPT编辑器文件 (*" + PresentationFileManager.getRecommendedExtension() + ")";
+            }
+        });
+        
+        // 设置默认文件名
+        String defaultName = currentPresentation.getTitle();
+        if (defaultName == null || defaultName.isEmpty()) {
+            defaultName = "新建演示文稿";
+        }
+        fileChooser.setSelectedFile(new File(defaultName + PresentationFileManager.getRecommendedExtension()));
+        
+        int result = fileChooser.showSaveDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            try {
+                PresentationFileManager.savePresentation(currentPresentation, selectedFile);
+                updateStatus("另存为成功: " + selectedFile.getName());
+                setTitle(PPTEditorApplication.AppInfo.getFullName() + " - " + selectedFile.getName());
+                
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, 
+                    "另存为失败: " + e.getMessage(), 
+                    "错误", 
+                    JOptionPane.ERROR_MESSAGE);
+                updateStatus("另存为失败");
+            }
+        }
     }
     
     private void exportAsImage() {
-        updateStatus("导出为图片");
-        // TODO: 实现导出图片功能
+        if (currentPresentation == null) {
+            JOptionPane.showMessageDialog(this, "没有可导出的演示文稿", "提示", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("选择导出目录");
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        
+        int result = chooser.showSaveDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedDir = chooser.getSelectedFile();
+            
+            // 选择图片格式
+            String[] formats = exporter.getSupportedImageFormats();
+            String format = (String) JOptionPane.showInputDialog(this,
+                "选择图片格式:", 
+                "导出格式", 
+                JOptionPane.QUESTION_MESSAGE, 
+                null, 
+                formats, 
+                formats[0]);
+            
+            if (format != null) {
+                try {
+                    exporter.exportAllSlidesAsImages(currentPresentation, selectedDir.getAbsolutePath(), format);
+                    updateStatus("图片导出成功: " + selectedDir.getAbsolutePath());
+                    
+                    JOptionPane.showMessageDialog(this,
+                        "导出完成！文件保存到: " + selectedDir.getAbsolutePath(),
+                        "导出成功",
+                        JOptionPane.INFORMATION_MESSAGE);
+                    
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(this,
+                        "导出失败: " + e.getMessage(),
+                        "错误",
+                        JOptionPane.ERROR_MESSAGE);
+                    updateStatus("图片导出失败");
+                }
+            }
+        }
     }
     
     private void exportAsPDF() {
-        updateStatus("导出为PDF");
-        // TODO: 实现导出PDF功能
+        if (currentPresentation == null) {
+            JOptionPane.showMessageDialog(this, "没有可导出的演示文稿", "提示", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("导出为PDF");
+        chooser.setFileFilter(new javax.swing.filechooser.FileFilter() {
+            @Override
+            public boolean accept(File f) {
+                return f.isDirectory() || f.getName().toLowerCase().endsWith(".pdf");
+            }
+            
+            @Override
+            public String getDescription() {
+                return "PDF文件 (*.pdf)";
+            }
+        });
+        
+        // 设置默认文件名
+        String defaultName = currentPresentation.getTitle();
+        if (defaultName == null || defaultName.isEmpty()) {
+            defaultName = "演示文稿";
+        }
+        chooser.setSelectedFile(new File(defaultName + ".pdf"));
+        
+        int result = chooser.showSaveDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = chooser.getSelectedFile();
+            
+            try {
+                exporter.exportAsPDF(currentPresentation, selectedFile.getAbsolutePath());
+                updateStatus("PDF导出成功: " + selectedFile.getName());
+                
+                JOptionPane.showMessageDialog(this,
+                    "导出完成！文件保存为: " + selectedFile.getName(),
+                    "导出成功",
+                    JOptionPane.INFORMATION_MESSAGE);
+                
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this,
+                    "导出失败: " + e.getMessage(),
+                    "错误",
+                    JOptionPane.ERROR_MESSAGE);
+                updateStatus("PDF导出失败");
+            }
+        }
     }
     
     private void undo() {
         if (commandManager.undo()) {
+            // 刷新界面显示
+            if (slideCanvas != null) {
+                slideCanvas.repaint();
+            }
+            if (slidePanel != null) {
+                slidePanel.updateSlideList();
+            }
             updateStatus("撤销完成");
         } else {
             updateStatus("无法撤销");
@@ -306,6 +591,13 @@ public class MainWindow extends JFrame {
     
     private void redo() {
         if (commandManager.redo()) {
+            // 刷新界面显示
+            if (slideCanvas != null) {
+                slideCanvas.repaint();
+            }
+            if (slidePanel != null) {
+                slidePanel.updateSlideList();
+            }
             updateStatus("重做完成");
         } else {
             updateStatus("无法重做");
@@ -323,48 +615,82 @@ public class MainWindow extends JFrame {
     }
     
     private void delete() {
-        updateStatus("删除");
-        // TODO: 实现删除功能
+        if (slideCanvas != null) {
+            slideCanvas.deleteSelectedElements();
+            updateStatus("删除选中元素");
+        }
     }
     
     private void insertTextBox() {
-        updateStatus("插入文本框");
-        // TODO: 实现插入文本框功能
+        if (slideCanvas != null) {
+            slideCanvas.addTextElement("点击编辑文本");
+            updateStatus("插入文本框");
+        }
     }
     
     private void insertRectangle() {
-        updateStatus("插入矩形");
-        // TODO: 实现插入矩形功能
+        if (slideCanvas != null) {
+            slideCanvas.addRectangleElement();
+            updateStatus("插入矩形");
+        }
     }
     
     private void insertEllipse() {
-        updateStatus("插入椭圆");
-        // TODO: 实现插入椭圆功能
+        if (slideCanvas != null) {
+            slideCanvas.addEllipseElement();
+            updateStatus("插入椭圆");
+        }
     }
     
     private void insertImage() {
-        updateStatus("插入图片");
-        // TODO: 实现插入图片功能
+        if (slideCanvas != null) {
+            slideCanvas.addImageElement();
+            updateStatus("插入图片");
+        }
     }
     
     private void zoomIn() {
-        updateStatus("放大");
-        // TODO: 实现放大功能
+        if (slideCanvas != null) {
+            slideCanvas.zoomIn();
+            updateStatus("放大到 " + Math.round(slideCanvas.getZoomLevel() * 100) + "%");
+        }
     }
     
     private void zoomOut() {
-        updateStatus("缩小");
-        // TODO: 实现缩小功能
+        if (slideCanvas != null) {
+            slideCanvas.zoomOut();
+            updateStatus("缩小到 " + Math.round(slideCanvas.getZoomLevel() * 100) + "%");
+        }
     }
     
     private void fitToWindow() {
-        updateStatus("适合窗口");
-        // TODO: 实现适合窗口功能
+        if (slideCanvas != null) {
+            slideCanvas.resetZoom();
+            updateStatus("重置缩放到 100%");
+        }
     }
     
     private void startPresentationMode() {
-        updateStatus("开始演示模式");
-        // TODO: 实现演示模式功能
+        if (currentPresentation == null || currentPresentation.getSlides().isEmpty()) {
+            JOptionPane.showMessageDialog(this, 
+                "没有可演示的幻灯片", 
+                "提示", 
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        try {
+            updateStatus("启动演示模式");
+            PresentationWindow presentationWindow = new PresentationWindow(currentPresentation);
+            // 演示窗口会自动显示并进入全屏模式
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, 
+                "启动演示模式失败: " + e.getMessage(), 
+                "错误", 
+                JOptionPane.ERROR_MESSAGE);
+            updateStatus("演示模式启动失败");
+        }
     }
     
     private void showAbout() {
@@ -390,5 +716,91 @@ public class MainWindow extends JFrame {
         SwingUtilities.invokeLater(() -> {
             statusLabel.setText(message);
         });
+    }
+    
+    /**
+     * 根据窗口大小动态调整布局
+     */
+    private void adjustLayoutOnResize() {
+        SwingUtilities.invokeLater(() -> {
+            if (contentPanel != null) {
+                // 获取主分割面板
+                Component[] components = contentPanel.getComponents();
+                if (components.length > 0 && components[0] instanceof JSplitPane) {
+                    JSplitPane mainSplitPane = (JSplitPane) components[0];
+                    
+                    // 计算动态分割位置
+                    int windowWidth = getWidth();
+                    int propertyPanelWidth = Math.max(250, Math.min(350, windowWidth / 5)); // 属性面板占1/5宽度，最小250px，最大350px
+                    int mainDividerLocation = windowWidth - propertyPanelWidth - 20; // 留些边距
+                    
+                    // 设置主分割面板位置
+                    mainSplitPane.setDividerLocation(mainDividerLocation);
+                    
+                    // 获取左侧分割面板
+                    Component leftComponent = mainSplitPane.getLeftComponent();
+                    if (leftComponent instanceof JSplitPane) {
+                        JSplitPane leftSplitPane = (JSplitPane) leftComponent;
+                        
+                        // 左侧面板宽度固定为200-250px
+                        int leftPanelWidth = Math.max(200, Math.min(250, windowWidth / 6));
+                        leftSplitPane.setDividerLocation(leftPanelWidth);
+                        
+                        // 获取左侧垂直分割面板
+                        Component leftSideComponent = leftSplitPane.getLeftComponent();
+                        if (leftSideComponent instanceof JSplitPane) {
+                            JSplitPane leftSidePanel = (JSplitPane) leftSideComponent;
+                            
+                            // 动态调整幻灯片面板和模板面板的比例
+                            int windowHeight = getHeight();
+                            int availableHeight = windowHeight - 100; // 减去菜单栏、工具栏、状态栏的高度
+                            int slidePanelHeight = (int)(availableHeight * 0.6); // 60%给幻灯片面板
+                            
+                            leftSidePanel.setDividerLocation(slidePanelHeight);
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    /**
+     * 跳转到指定页面
+     */
+    public void goToSlide(int index) {
+        if (currentPresentation != null && slidePanel != null) {
+            currentPresentation.goToSlide(index);
+            slidePanel.updateSlideList();
+            slideCanvas.repaint();
+            updateStatus("已跳转到第" + (index + 1) + "页");
+        }
+    }
+    
+    /**
+     * 跳转到最后一页
+     */
+    public void goToLastSlide() {
+        if (currentPresentation != null && !currentPresentation.getSlides().isEmpty()) {
+            int lastIndex = currentPresentation.getSlides().size() - 1;
+            goToSlide(lastIndex);
+        }
+    }
+    
+    // 公共访问方法
+    public Presentation getCurrentPresentation() {
+        return currentPresentation;
+    }
+    
+    public SlideCanvas getSlideCanvas() {
+        return slideCanvas;
+    }
+    
+    public void refreshCanvas() {
+        if (slideCanvas != null) {
+            slideCanvas.repaint();
+        }
+        if (slidePanel != null) {
+            slidePanel.repaint();
+        }
     }
 } 

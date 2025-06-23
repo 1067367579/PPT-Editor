@@ -3,23 +3,23 @@ package com.ppteditor.core.model;
 import com.ppteditor.core.enums.ElementType;
 import com.ppteditor.core.annotations.Serializable;
 import java.awt.*;
-import java.awt.geom.Rectangle2D;
+import java.awt.geom.Ellipse2D;
 
 /**
- * 矩形元素类
+ * 椭圆元素类
  * 继承自SlideElement并使用ShapeStyle作为样式类型
- * 支持在矩形内显示文本
+ * 支持在椭圆内显示文本
  */
-public class RectangleElement extends SlideElement<ShapeStyle> implements java.io.Serializable {
+public class EllipseElement extends SlideElement<ShapeStyle> implements java.io.Serializable {
     
     @Serializable
-    private String text; // 矩形内的文本
+    private String text; // 椭圆内的文本
     
     @Serializable
     private TextStyle textStyle; // 文本样式
     
-    public RectangleElement() {
-        super(ElementType.RECTANGLE);
+    public EllipseElement() {
+        super(ElementType.ELLIPSE);
         this.style = createDefaultStyle();
         this.width = 100;
         this.height = 60;
@@ -27,7 +27,7 @@ public class RectangleElement extends SlideElement<ShapeStyle> implements java.i
         this.textStyle = createDefaultTextStyle();
     }
     
-    public RectangleElement(double x, double y, double width, double height) {
+    public EllipseElement(double x, double y, double width, double height) {
         this();
         this.x = x;
         this.y = y;
@@ -44,13 +44,13 @@ public class RectangleElement extends SlideElement<ShapeStyle> implements java.i
         // 启用抗锯齿
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         
-        Rectangle2D rect = new Rectangle2D.Double(x, y, width, height);
+        Ellipse2D ellipse = new Ellipse2D.Double(x, y, width, height);
         
         // 绘制填充
         Color fillColor = style.getEffectiveFillColor();
         if (fillColor != null) {
             g2d.setColor(fillColor);
-            g2d.fill(rect);
+            g2d.fill(ellipse);
         }
         
         // 绘制边框
@@ -58,7 +58,7 @@ public class RectangleElement extends SlideElement<ShapeStyle> implements java.i
         if (borderColor != null) {
             g2d.setColor(borderColor);
             g2d.setStroke(style.getBorderStroke());
-            g2d.draw(rect);
+            g2d.draw(ellipse);
         }
         
         // 绘制文本
@@ -79,23 +79,20 @@ public class RectangleElement extends SlideElement<ShapeStyle> implements java.i
     
     @Override
     public boolean contains(Point point) {
-        return point.x >= x && point.x <= x + width && 
-               point.y >= y && point.y <= y + height;
+        Ellipse2D ellipse = new Ellipse2D.Double(x, y, width, height);
+        return ellipse.contains(point);
     }
     
-    // 静态工厂方法 - 创建特定样式的矩形
-    public static RectangleElement createCard(double x, double y, double width, double height) {
-        RectangleElement element = new RectangleElement(x, y, width, height);
-        element.style.setFillColor(Color.WHITE);
-        element.style.setBorderColor(Color.LIGHT_GRAY);
-        element.style.setBorderWidth(1.0f);
+    // 静态工厂方法 - 创建特定样式的椭圆
+    public static EllipseElement createCircle(double x, double y, double radius) {
+        EllipseElement element = new EllipseElement(x, y, radius * 2, radius * 2);
         return element;
     }
     
-    public static RectangleElement createButton(double x, double y, double width, double height) {
-        RectangleElement element = new RectangleElement(x, y, width, height);
-        element.style.setFillColor(new Color(0, 123, 255));
-        element.style.setBorderColor(new Color(0, 86, 179));
+    public static EllipseElement createOval(double x, double y, double width, double height) {
+        EllipseElement element = new EllipseElement(x, y, width, height);
+        element.style.setFillColor(new Color(255, 200, 200));
+        element.style.setBorderColor(new Color(200, 100, 100));
         element.style.setBorderWidth(2.0f);
         return element;
     }
@@ -157,8 +154,8 @@ public class RectangleElement extends SlideElement<ShapeStyle> implements java.i
     public void setTextStyle(TextStyle textStyle) { this.textStyle = textStyle; }
     
     @Override
-    public RectangleElement clone() {
-        RectangleElement cloned = (RectangleElement) super.clone();
+    public EllipseElement clone() {
+        EllipseElement cloned = (EllipseElement) super.clone();
         cloned.text = this.text;
         if (this.textStyle != null) {
             cloned.textStyle = this.textStyle.clone();

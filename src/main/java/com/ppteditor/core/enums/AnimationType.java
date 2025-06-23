@@ -7,12 +7,16 @@ package com.ppteditor.core.enums;
 public enum AnimationType {
     NONE("无动画"),
     FADE("淡入淡出"),
+    SLIDE("滑动"),
     SLIDE_LEFT("左滑"),
     SLIDE_RIGHT("右滑"),
     SLIDE_UP("上滑"),
     SLIDE_DOWN("下滑"),
+    ZOOM("缩放"),
     ZOOM_IN("放大"),
-    ZOOM_OUT("缩小");
+    ZOOM_OUT("缩小"),
+    FLIP("翻转"),
+    DISSOLVE("溶解");
     
     private final String displayName;
     

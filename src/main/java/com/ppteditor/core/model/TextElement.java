@@ -4,18 +4,26 @@ import com.ppteditor.core.annotations.Serializable;
 import com.ppteditor.core.enums.ElementType;
 import java.awt.*;
 import java.awt.geom.Rectangle2D;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 文本元素类
  * 继承自SlideElement并使用TextStyle作为样式类型
  */
-public class TextElement extends SlideElement<TextStyle> {
+public class TextElement extends SlideElement<TextStyle> implements java.io.Serializable {
     
     @Serializable(required = true)
     private String text;
     
     @Serializable
     private boolean autoSize; // 自动调整大小
+    
+    @Serializable
+    private List<TextSegment> textSegments; // 文本片段列表，支持部分文字超链接
+    
+    @Serializable
+    private boolean useSegments; // 是否使用文本片段模式
     
     public TextElement() {
         super(ElementType.TEXT);
@@ -24,6 +32,9 @@ public class TextElement extends SlideElement<TextStyle> {
         this.style = createDefaultStyle();
         this.width = 100;
         this.height = 30;
+        this.textSegments = new ArrayList<>();
+        this.useSegments = false;
+        initializeSegments();
     }
     
     public TextElement(String text) {
@@ -40,15 +51,23 @@ public class TextElement extends SlideElement<TextStyle> {
         // 设置渲染提示以获得更好的文本质量
         g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         
-        // 绘制背景
-        if (style.getBackgroundColor() != null) {
+        // 绘制背景（只有当背景色不是白色或透明时才绘制）
+        if (style.getBackgroundColor() != null && 
+            !style.getBackgroundColor().equals(Color.WHITE) &&
+            style.getBackgroundColor().getAlpha() > 0) {
             g2d.setColor(style.getBackgroundColor());
             g2d.fillRect((int)x, (int)y, (int)width, (int)height);
         }
         
         // 绘制文本
         g2d.setFont(style.getFont());
-        g2d.setColor(style.getTextColor());
+        
+        // 如果有超链接，使用超链接样式
+        if (hyperlink != null && !hyperlink.trim().isEmpty()) {
+            g2d.setColor(new Color(0, 102, 204)); // 蓝色
+        } else {
+            g2d.setColor(style.getTextColor());
+        }
         
         FontMetrics fm = g2d.getFontMetrics();
         
@@ -60,54 +79,130 @@ public class TextElement extends SlideElement<TextStyle> {
         }
         
         // 计算文本位置
-        int textX = calculateTextX(fm);
         int textY = calculateTextY(fm);
         
         // 绘制文本
-        drawText(g2d, textX, textY);
-        
-        // 绘制下划线
-        if (style.isUnderline()) {
-            drawUnderline(g2d, textX, textY, fm);
+        if (useSegments && !textSegments.isEmpty()) {
+            drawSegmentedText(g2d, textY);
+        } else {
+            drawText(g2d, textY);
+            
+            // 绘制下划线（原有的下划线样式或超链接下划线）
+            if (style.isUnderline() || (hyperlink != null && !hyperlink.trim().isEmpty())) {
+                drawUnderline(g2d, textY, fm);
+            }
         }
     }
     
-    private int calculateTextX(FontMetrics fm) {
+    private int calculateTextX(FontMetrics fm, String line) {
         switch (style.getAlignment()) {
-            case 1: // 居中
-                return (int)(x + (width - fm.stringWidth(text)) / 2);
-            case 2: // 右对齐
-                return (int)(x + width - fm.stringWidth(text) - 5);
+            case TextStyle.ALIGN_CENTER: // 居中
+                return (int)(x + (width - fm.stringWidth(line)) / 2);
+            case TextStyle.ALIGN_RIGHT: // 右对齐
+                return (int)(x + width - fm.stringWidth(line) - 5);
             default: // 左对齐
                 return (int)x + 5;
         }
     }
     
     private int calculateTextY(FontMetrics fm) {
-        return (int)(y + (height + fm.getAscent() - fm.getDescent()) / 2);
+        String[] lines = text.split("\n");
+        int totalTextHeight = lines.length * (int)(fm.getHeight() * style.getLineSpacing());
+        
+        // 如果是左对齐的文本（通常是正文），从顶部开始显示
+        if (style.getAlignment() == TextStyle.ALIGN_LEFT) {
+            return (int)(y + fm.getAscent() + 5); // 顶部对齐，加5像素边距
+        } else {
+            // 其他对齐方式（居中、右对齐）保持垂直居中
+            return (int)(y + fm.getAscent() + (height - totalTextHeight) / 2);
+        }
     }
     
-    private void drawText(Graphics2D g2d, int textX, int textY) {
-        // 处理多行文本
-        String[] lines = text.split("\n");
+    private void drawText(Graphics2D g2d, int baseY) {
         FontMetrics fm = g2d.getFontMetrics();
         int lineHeight = (int)(fm.getHeight() * style.getLineSpacing());
         
-        for (int i = 0; i < lines.length; i++) {
-            int currentY = textY + i * lineHeight;
+        // 自动换行处理
+        java.util.List<String> wrappedLines = wrapText(text, fm, (int)width - 10); // 减去边距
+        
+        for (int i = 0; i < wrappedLines.size(); i++) {
+            int currentY = baseY + i * lineHeight;
             if (currentY <= y + height) { // 确保文本在边界内
-                g2d.drawString(lines[i], textX, currentY);
+                String line = wrappedLines.get(i);
+                int textX = calculateTextX(fm, line);
+                g2d.drawString(line, textX, currentY);
             }
         }
     }
     
-    private void drawUnderline(Graphics2D g2d, int textX, int textY, FontMetrics fm) {
+    /**
+     * 文本自动换行处理
+     */
+    private java.util.List<String> wrapText(String text, FontMetrics fm, int maxWidth) {
+        java.util.List<String> wrappedLines = new ArrayList<>();
+        
+        if (text == null || text.isEmpty()) {
+            wrappedLines.add("");
+            return wrappedLines;
+        }
+        
+        // 按原有换行符分割
+        String[] paragraphs = text.split("\n");
+        
+        for (String paragraph : paragraphs) {
+            if (paragraph.isEmpty()) {
+                wrappedLines.add("");
+                continue;
+            }
+            
+            // 检查段落是否需要换行
+            if (fm.stringWidth(paragraph) <= maxWidth) {
+                wrappedLines.add(paragraph);
+                continue;
+            }
+            
+            // 需要换行处理
+            String[] words = paragraph.split("\\s+");
+            StringBuilder currentLine = new StringBuilder();
+            
+            for (String word : words) {
+                String testLine = currentLine.length() > 0 ? 
+                    currentLine.toString() + " " + word : word;
+                
+                if (fm.stringWidth(testLine) <= maxWidth) {
+                    if (currentLine.length() > 0) {
+                        currentLine.append(" ");
+                    }
+                    currentLine.append(word);
+                } else {
+                    // 当前行已满，开始新行
+                    if (currentLine.length() > 0) {
+                        wrappedLines.add(currentLine.toString());
+                        currentLine = new StringBuilder(word);
+                    } else {
+                        // 单个词太长，强制换行
+                        wrappedLines.add(word);
+                    }
+                }
+            }
+            
+            // 添加最后一行
+            if (currentLine.length() > 0) {
+                wrappedLines.add(currentLine.toString());
+            }
+        }
+        
+        return wrappedLines;
+    }
+    
+    private void drawUnderline(Graphics2D g2d, int baseY, FontMetrics fm) {
         String[] lines = text.split("\n");
         int lineHeight = (int)(fm.getHeight() * style.getLineSpacing());
         
         for (int i = 0; i < lines.length; i++) {
-            int currentY = textY + i * lineHeight;
+            int currentY = baseY + i * lineHeight;
             if (currentY <= y + height) {
+                int textX = calculateTextX(fm, lines[i]);
                 int lineWidth = fm.stringWidth(lines[i]);
                 g2d.drawLine(textX, currentY + 2, textX + lineWidth, currentY + 2);
             }
@@ -162,16 +257,203 @@ public class TextElement extends SlideElement<TextStyle> {
     
     // Getter和Setter方法
     public String getText() { return text; }
-    public void setText(String text) { this.text = text; }
     
     public boolean isAutoSize() { return autoSize; }
     public void setAutoSize(boolean autoSize) { this.autoSize = autoSize; }
+    
+    /**
+     * 初始化文本片段
+     */
+    private void initializeSegments() {
+        if (text != null && !text.isEmpty()) {
+            textSegments.clear();
+            textSegments.add(new TextSegment(text));
+        }
+    }
+    
+    /**
+     * 绘制分段文本（支持部分超链接）
+     */
+    private void drawSegmentedText(Graphics2D g2d, int baseY) {
+        FontMetrics fm = g2d.getFontMetrics();
+        int currentX = (int)x + 5;
+        int currentY = baseY;
+        int lineHeight = (int)(fm.getHeight() * style.getLineSpacing());
+        
+        for (TextSegment segment : textSegments) {
+            String segmentText = segment.getText();
+            if (segmentText == null || segmentText.isEmpty()) continue;
+            
+            // 设置片段样式
+            Font segmentFont = createSegmentFont(segment);
+            g2d.setFont(segmentFont);
+            
+            // 设置片段颜色
+            Color segmentColor = segment.getTextColor();
+            if (segmentColor == null) {
+                segmentColor = segment.isHyperlink() ? new Color(0, 102, 204) : style.getTextColor();
+            }
+            g2d.setColor(segmentColor);
+            
+            // 处理换行
+            String[] lines = segmentText.split("\n");
+            for (int i = 0; i < lines.length; i++) {
+                String line = lines[i];
+                
+                if (i > 0) {
+                    // 换行
+                    currentY += lineHeight;
+                    currentX = (int)x + 5;
+                }
+                
+                // 绘制文本
+                g2d.drawString(line, currentX, currentY);
+                
+                // 绘制下划线
+                if (segment.isUnderline() || segment.isHyperlink()) {
+                    int lineWidth = fm.stringWidth(line);
+                    g2d.drawLine(currentX, currentY + 2, currentX + lineWidth, currentY + 2);
+                }
+                
+                // 更新X位置
+                currentX += fm.stringWidth(line);
+            }
+        }
+    }
+    
+    /**
+     * 为文本片段创建字体
+     */
+    private Font createSegmentFont(TextSegment segment) {
+        int fontStyle = Font.PLAIN;
+        if (style.isBold() || segment.isBold()) fontStyle |= Font.BOLD;
+        if (style.isItalic() || segment.isItalic()) fontStyle |= Font.ITALIC;
+        
+        return new Font(style.getFontFamily(), fontStyle, style.getFontSize());
+    }
+    
+    /**
+     * 设置文本并同步到片段
+     */
+    public void setText(String text) {
+        this.text = text;
+        if (useSegments) {
+            initializeSegments();
+        }
+    }
+    
+    /**
+     * 为选中的文字设置超链接
+     */
+    public void setHyperlinkForSelection(int startIndex, int endIndex, String hyperlink) {
+        if (startIndex < 0 || endIndex > text.length() || startIndex >= endIndex) {
+            return;
+        }
+        
+        useSegments = true;
+        
+        // 重新构建文本片段
+        List<TextSegment> newSegments = new ArrayList<>();
+        
+        // 添加超链接前的文本
+        if (startIndex > 0) {
+            newSegments.add(new TextSegment(text.substring(0, startIndex)));
+        }
+        
+        // 添加超链接文本
+        String linkText = text.substring(startIndex, endIndex);
+        newSegments.add(new TextSegment(linkText, hyperlink));
+        
+        // 添加超链接后的文本
+        if (endIndex < text.length()) {
+            newSegments.add(new TextSegment(text.substring(endIndex)));
+        }
+        
+        this.textSegments = newSegments;
+    }
+    
+    /**
+     * 获取点击位置的超链接
+     */
+    public String getHyperlinkAtPoint(Point point) {
+        if (!useSegments || textSegments.isEmpty()) {
+            return hyperlink; // 返回整个元素的超链接
+        }
+        
+        // 创建临时Graphics2D用于计算文本位置
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = img.createGraphics();
+        g2d.setFont(style.getFont());
+        FontMetrics fm = g2d.getFontMetrics();
+        
+        // 计算基础Y位置
+        int baseY = calculateTextY(fm);
+        int lineHeight = (int)(fm.getHeight() * style.getLineSpacing());
+        
+        // 遍历文本片段，找到点击位置的片段
+        int currentX = (int)x + 5;
+        int currentY = baseY;
+        
+        for (TextSegment segment : textSegments) {
+            String segmentText = segment.getText();
+            if (segmentText == null || segmentText.isEmpty()) continue;
+            
+            // 设置片段字体
+            Font segmentFont = createSegmentFont(segment);
+            g2d.setFont(segmentFont);
+            fm = g2d.getFontMetrics();
+            
+            // 处理换行
+            String[] lines = segmentText.split("\n");
+            for (int i = 0; i < lines.length; i++) {
+                String line = lines[i];
+                
+                if (i > 0) {
+                    // 换行
+                    currentY += lineHeight;
+                    currentX = (int)x + 5;
+                }
+                
+                // 检查点击位置是否在当前行的片段范围内
+                int lineWidth = fm.stringWidth(line);
+                Rectangle segmentBounds = new Rectangle(currentX, currentY - fm.getAscent(), 
+                                                       lineWidth, fm.getHeight());
+                
+                if (segmentBounds.contains(point) && segment.isHyperlink()) {
+                    g2d.dispose();
+                    return segment.getHyperlink();
+                }
+                
+                // 更新X位置
+                currentX += lineWidth;
+            }
+        }
+        
+        g2d.dispose();
+        return null;
+    }
+    
+    // Getter和Setter方法
+    public List<TextSegment> getTextSegments() { return textSegments; }
+    public void setTextSegments(List<TextSegment> textSegments) { this.textSegments = textSegments; }
+    
+    public boolean isUseSegments() { return useSegments; }
+    public void setUseSegments(boolean useSegments) { this.useSegments = useSegments; }
     
     @Override
     public TextElement clone() {
         TextElement cloned = (TextElement) super.clone();
         cloned.text = this.text;
         cloned.autoSize = this.autoSize;
+        cloned.useSegments = this.useSegments;
+        
+        if (this.textSegments != null) {
+            cloned.textSegments = new ArrayList<>();
+            for (TextSegment segment : this.textSegments) {
+                cloned.textSegments.add(segment.clone());
+            }
+        }
+        
         return cloned;
     }
 } 

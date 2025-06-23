@@ -86,6 +86,13 @@ public class Slide implements Cloneable {
         reorderZIndex();
     }
     
+    public void removeMasterElements() {
+        // 移除所有锁定的元素（母版元素）
+        elements.removeIf(element -> element.isLocked());
+        selectedElements.removeIf(element -> element.isLocked());
+        reorderZIndex();
+    }
+    
     private void reorderZIndex() {
         for (int i = 0; i < elements.size(); i++) {
             elements.get(i).setZIndex(i + 1);
@@ -222,7 +229,13 @@ public class Slide implements Cloneable {
     
     // 对齐功能
     public void alignLeft() {
-        if (selectedElements.size() > 1) {
+        if (selectedElements.isEmpty()) return;
+        
+        if (selectedElements.size() == 1) {
+            // 单个元素对齐到画布左边
+            selectedElements.forEach(element -> element.setX(0));
+        } else {
+            // 多个元素对齐到最左边的元素
             double minX = selectedElements.stream()
                     .mapToDouble(SlideElement::getX)
                     .min()
@@ -232,7 +245,14 @@ public class Slide implements Cloneable {
     }
     
     public void alignRight() {
-        if (selectedElements.size() > 1) {
+        if (selectedElements.isEmpty()) return;
+        
+        if (selectedElements.size() == 1) {
+            // 单个元素对齐到画布右边（假设画布宽度800）
+            selectedElements.forEach(element -> 
+                element.setX(800 - element.getWidth()));
+        } else {
+            // 多个元素对齐到最右边的元素
             double maxX = selectedElements.stream()
                     .mapToDouble(element -> element.getX() + element.getWidth())
                     .max()
@@ -243,7 +263,13 @@ public class Slide implements Cloneable {
     }
     
     public void alignTop() {
-        if (selectedElements.size() > 1) {
+        if (selectedElements.isEmpty()) return;
+        
+        if (selectedElements.size() == 1) {
+            // 单个元素对齐到画布顶部
+            selectedElements.forEach(element -> element.setY(0));
+        } else {
+            // 多个元素对齐到最顶部的元素
             double minY = selectedElements.stream()
                     .mapToDouble(SlideElement::getY)
                     .min()
@@ -253,7 +279,14 @@ public class Slide implements Cloneable {
     }
     
     public void alignBottom() {
-        if (selectedElements.size() > 1) {
+        if (selectedElements.isEmpty()) return;
+        
+        if (selectedElements.size() == 1) {
+            // 单个元素对齐到画布底部（假设画布高度450）
+            selectedElements.forEach(element -> 
+                element.setY(450 - element.getHeight()));
+        } else {
+            // 多个元素对齐到最底部的元素
             double maxY = selectedElements.stream()
                     .mapToDouble(element -> element.getY() + element.getHeight())
                     .max()
@@ -264,7 +297,14 @@ public class Slide implements Cloneable {
     }
     
     public void alignCenterHorizontal() {
-        if (selectedElements.size() > 1) {
+        if (selectedElements.isEmpty()) return;
+        
+        if (selectedElements.size() == 1) {
+            // 单个元素水平居中到画布
+            selectedElements.forEach(element -> 
+                element.setX((800 - element.getWidth()) / 2));
+        } else {
+            // 多个元素水平居中对齐
             double avgX = selectedElements.stream()
                     .mapToDouble(element -> element.getX() + element.getWidth() / 2)
                     .average()
@@ -275,7 +315,14 @@ public class Slide implements Cloneable {
     }
     
     public void alignCenterVertical() {
-        if (selectedElements.size() > 1) {
+        if (selectedElements.isEmpty()) return;
+        
+        if (selectedElements.size() == 1) {
+            // 单个元素垂直居中到画布
+            selectedElements.forEach(element -> 
+                element.setY((450 - element.getHeight()) / 2));
+        } else {
+            // 多个元素垂直居中对齐
             double avgY = selectedElements.stream()
                     .mapToDouble(element -> element.getY() + element.getHeight() / 2)
                     .average()

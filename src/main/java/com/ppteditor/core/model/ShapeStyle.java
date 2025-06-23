@@ -9,7 +9,7 @@ import java.awt.Stroke;
  * 图形样式配置类
  * 包含图形的所有样式属性
  */
-public class ShapeStyle implements ElementStyle {
+public class ShapeStyle implements ElementStyle, java.io.Serializable {
     
     @Serializable
     private Color fillColor;

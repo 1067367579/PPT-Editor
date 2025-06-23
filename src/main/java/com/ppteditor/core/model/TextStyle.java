@@ -1,6 +1,7 @@
 package com.ppteditor.core.model;
 
 import com.ppteditor.core.annotations.Serializable;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.awt.Color;
 import java.awt.Font;
 
@@ -8,7 +9,13 @@ import java.awt.Font;
  * 文本样式配置类
  * 包含文本的所有样式属性
  */
-public class TextStyle implements ElementStyle {
+public class TextStyle implements ElementStyle, java.io.Serializable {
+    
+    // 文本对齐常量
+    public static final int ALIGN_LEFT = 0;
+    public static final int ALIGN_CENTER = 1;
+    public static final int ALIGN_RIGHT = 2;
+    public static final int ALIGN_JUSTIFY = 3;
     
     @Serializable
     private String fontFamily;
@@ -120,10 +127,13 @@ public class TextStyle implements ElementStyle {
     
     @Override
     public void applyColorTheme(ColorTheme colorTheme) {
+        // 只应用文本颜色，不改变文本框的背景色
         this.textColor = colorTheme.getTextColor();
-        this.backgroundColor = colorTheme.getBackgroundColor();
+        // 文本框背景保持透明或白色，不使用主题背景色
+        // this.backgroundColor = colorTheme.getBackgroundColor(); // 注释掉这行
     }
     
+    @JsonIgnore
     public Font getFont() {
         int style = Font.PLAIN;
         if (bold) style |= Font.BOLD;
@@ -158,4 +168,15 @@ public class TextStyle implements ElementStyle {
     
     public double getLineSpacing() { return lineSpacing; }
     public void setLineSpacing(double lineSpacing) { this.lineSpacing = lineSpacing; }
+    
+    // 便捷的对齐方法
+    public boolean isLeftAligned() { return alignment == ALIGN_LEFT; }
+    public boolean isCenterAligned() { return alignment == ALIGN_CENTER; }
+    public boolean isRightAligned() { return alignment == ALIGN_RIGHT; }
+    public boolean isJustifyAligned() { return alignment == ALIGN_JUSTIFY; }
+    
+    public void setLeftAlign() { this.alignment = ALIGN_LEFT; }
+    public void setCenterAlign() { this.alignment = ALIGN_CENTER; }
+    public void setRightAlign() { this.alignment = ALIGN_RIGHT; }
+    public void setJustifyAlign() { this.alignment = ALIGN_JUSTIFY; }
 } 
