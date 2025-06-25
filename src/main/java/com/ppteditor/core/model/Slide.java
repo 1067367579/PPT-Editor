@@ -30,12 +30,6 @@ public class Slide implements Cloneable {
     private String backgroundImagePath;
     
     @Serializable
-    private AnimationType transitionAnimation;
-    
-    @Serializable
-    private int transitionDuration; // 毫秒
-    
-    @Serializable
     private String notes; // 演讲者备注
     
     // 非序列化字段
@@ -47,8 +41,6 @@ public class Slide implements Cloneable {
         this.name = "幻灯片";
         this.elements = new ArrayList<>();
         this.backgroundColor = Color.WHITE;
-        this.transitionAnimation = AnimationType.NONE;
-        this.transitionDuration = 500;
         this.notes = "";
         this.selectedElements = new HashSet<>();
     }
@@ -370,16 +362,6 @@ public class Slide implements Cloneable {
     public void setBackgroundImagePath(String backgroundImagePath) { 
         this.backgroundImagePath = backgroundImagePath;
         // TODO: 加载背景图片
-    }
-    
-    public AnimationType getTransitionAnimation() { return transitionAnimation; }
-    public void setTransitionAnimation(AnimationType transitionAnimation) { 
-        this.transitionAnimation = transitionAnimation; 
-    }
-    
-    public int getTransitionDuration() { return transitionDuration; }
-    public void setTransitionDuration(int transitionDuration) { 
-        this.transitionDuration = transitionDuration; 
     }
     
     public String getNotes() { return notes; }

@@ -1,6 +1,9 @@
 package com.ppteditor.core.model;
 
 import com.ppteditor.core.annotations.Serializable;
+import com.ppteditor.core.enums.AnimationType;
+
+import java.awt.Color;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -37,9 +40,15 @@ public class Presentation implements Cloneable {
     @Serializable
     private Map<String, Object> metadata; // 元数据
     
-    private transient int currentSlideIndex;
+    private int currentSlideIndex;
     private transient String filePath;
     private transient boolean modified;
+    
+    @Serializable
+    private AnimationType transitionAnimation;
+    
+    @Serializable
+    private int transitionDuration;
     
     public Presentation() {
         this.id = UUID.randomUUID().toString();
@@ -52,6 +61,8 @@ public class Presentation implements Cloneable {
         this.metadata = new HashMap<>();
         this.currentSlideIndex = 0;
         this.modified = false;
+        this.transitionAnimation = AnimationType.NONE;
+        this.transitionDuration = 500;
         
         // 创建默认幻灯片
         addSlide(new Slide("标题幻灯片"));
@@ -157,7 +168,7 @@ public class Presentation implements Cloneable {
     }
     
     public Slide getCurrentSlide() {
-        if (slides.isEmpty()) {
+        if (slides.isEmpty() || currentSlideIndex < 0 || currentSlideIndex >= slides.size()) {
             return null;
         }
         return slides.get(currentSlideIndex);
@@ -326,10 +337,34 @@ public class Presentation implements Cloneable {
         return metadata.get(key);
     }
     
-    public int getCurrentSlideIndex() { return currentSlideIndex; }
+    public int getCurrentSlideIndex() {
+        return currentSlideIndex;
+    }
+    
+    public void setCurrentSlideIndex(int index) {
+        if (index >= 0 && index < slides.size()) {
+            this.currentSlideIndex = index;
+        }
+    }
     
     public String getFilePath() { return filePath; }
     public void setFilePath(String filePath) { this.filePath = filePath; }
     
     public boolean isModified() { return modified; }
+    
+    public AnimationType getTransitionAnimation() {
+        return transitionAnimation;
+    }
+    
+    public void setTransitionAnimation(AnimationType transitionAnimation) {
+        this.transitionAnimation = transitionAnimation;
+    }
+    
+    public int getTransitionDuration() {
+        return transitionDuration;
+    }
+    
+    public void setTransitionDuration(int transitionDuration) {
+        this.transitionDuration = transitionDuration;
+    }
 } 

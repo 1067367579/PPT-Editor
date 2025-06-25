@@ -48,6 +48,7 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
     
     // 回调接口
     private Runnable onSelectionChanged;
+    private Runnable onContentChanged;
     private CommandManager commandManager;
     
     public SlideCanvas() {
@@ -81,6 +82,10 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
     
     public void setOnSelectionChanged(Runnable callback) {
         this.onSelectionChanged = callback;
+    }
+    
+    public void setOnContentChanged(Runnable callback) {
+        this.onContentChanged = callback;
     }
     
     @Override
@@ -150,6 +155,7 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         // 选中新创建的元素
         currentSlide.selectElement(element);
         notifySelectionChanged();
+        notifyContentChanged();
         repaint();
     }
     
@@ -166,6 +172,7 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         
         currentSlide.selectElement(element);
         notifySelectionChanged();
+        notifyContentChanged();
         repaint();
     }
     
@@ -182,6 +189,7 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         
         currentSlide.selectElement(element);
         notifySelectionChanged();
+        notifyContentChanged();
         repaint();
     }
     
@@ -241,6 +249,7 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
                 
                 currentSlide.selectElement(element);
                 notifySelectionChanged();
+                notifyContentChanged();
                 repaint();
                 
             } catch (Exception e) {
@@ -261,6 +270,7 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         commandManager.executeCommand(command);
         
         notifySelectionChanged();
+        notifyContentChanged();
         repaint();
     }
     
@@ -278,21 +288,21 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
     public void pasteElements() {
         if (currentSlide == null || clipboard.isEmpty()) return;
         
-        currentSlide.clearSelection();
-        
+        List<SlideElement<?>> pastedElements = new ArrayList<>();
         for (SlideElement<?> original : clipboard) {
-            SlideElement<?> element = original.clone();
-            // 稍微偏移位置避免重叠
-            element.move(20, 20);
-            
-            AddElementCommand command = new AddElementCommand(currentSlide, element);
-            commandManager.executeCommand(command);
-            
-            currentSlide.addToSelection(element);
+            SlideElement<?> cloned = original.clone();
+            cloned.move(20, 20); // 粘贴时偏移
+            pastedElements.add(cloned);
         }
         
+        AddElementCommand command = new AddElementCommand(currentSlide, pastedElements);
+        commandManager.executeCommand(command);
+        
+        currentSlide.clearSelection();
+        pastedElements.forEach(currentSlide::addToSelection);
+        
         notifySelectionChanged();
-        repaint();
+        notifyContentChanged();
     }
     
     // 对齐功能
@@ -341,88 +351,50 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
     // 鼠标事件处理
     @Override
     public void mousePressed(MouseEvent e) {
-        requestFocusInWindow();
-        
         if (currentSlide == null) return;
-        
-        Point point = scalePoint(e.getPoint());
-        
-        if (SwingUtilities.isLeftMouseButton(e)) {
-            // 首先检查是否点击了选择控制点
-            SelectionHandle handle = getHandleAt(point);
-            if (handle != null) {
-                // 点击了控制点，开始缩放/旋转操作
-                activeHandle = handle.getType();
-                activeSelectionHandle = handle;
-                dragStartPoint = point;
-                
-                // 记录原始状态
-                Set<SlideElement<?>> selected = currentSlide.getSelectedElements();
-                if (!selected.isEmpty()) {
-                    SlideElement<?> element = selected.iterator().next();
-                    originalBounds = element.getBounds();
-                    originalRotation = element.getRotation();
-                }
-                
-                setCursor(handle.getCursor());
-                return;
+        requestFocusInWindow();
+
+        Point p = scalePoint(e.getPoint());
+        SelectionHandle handle = getHandleAt(p);
+
+        if (handle != null) {
+            // Clicked on a resize/rotate handle
+            activeHandle = handle.getType();
+            isDragging = true;
+            dragStartPoint = p;
+            originalBounds = calculateBoundingBox(currentSlide.getSelectedElements());
+            if (!currentSlide.getSelectedElements().isEmpty()) {
+                originalRotation = currentSlide.getSelectedElements().iterator().next().getRotation();
             }
-            
-            // 首先检查是否点击在多选包围框内
-            Set<SlideElement<?>> selected = currentSlide.getSelectedElements();
-            boolean clickedInBoundingBox = false;
-            
-            if (selected.size() > 1) {
-                Rectangle boundingBox = calculateBoundingBox(selected);
-                if (boundingBox.contains(point)) {
-                    clickedInBoundingBox = true;
-                    // 准备拖拽所有选中元素
-                    draggedElement = selected.iterator().next(); // 使用第一个作为代表
-                    dragStartPoint = point;
-                    elementStartPos = new Point((int)draggedElement.getX(), (int)draggedElement.getY());
-                    notifySelectionChanged();
-                }
-            }
-            
-            if (!clickedInBoundingBox) {
-                // 查找点击的元素
-                List<SlideElement<?>> elementsAtPoint = currentSlide.findElementsAt(point);
-                
-                if (!elementsAtPoint.isEmpty()) {
-                    SlideElement<?> clickedElement = elementsAtPoint.get(0);
-                    
-                    if (!e.isControlDown()) {
-                        // 单选
-                        currentSlide.selectElement(clickedElement);
-                    } else {
-                        // 多选
-                        if (clickedElement.isSelected()) {
-                            currentSlide.removeFromSelection(clickedElement);
-                        } else {
-                            currentSlide.addToSelection(clickedElement);
-                        }
-                    }
-                    
-                    // 准备拖拽
-                    draggedElement = clickedElement;
-                    dragStartPoint = point;
-                    elementStartPos = new Point((int)clickedElement.getX(), (int)clickedElement.getY());
-                    
-                    notifySelectionChanged();
-                } else {
-                    // 点击空白区域，开始框选
-                    if (!e.isControlDown()) {
-                        currentSlide.clearSelection();
-                        notifySelectionChanged();
-                    }
-                    
-                    selectionStart = point;
-                    selectionRect = new Rectangle(point.x, point.y, 0, 0);
-                }
-            }
-            
-            repaint();
+            return;
         }
+        
+        draggedElement = findTopmostElementAt(p);
+        
+        if (draggedElement != null) {
+            isDragging = true;
+            dragStartPoint = p;
+            elementStartPos = new Point((int)draggedElement.getX(), (int)draggedElement.getY());
+
+            if (!e.isControlDown() && !currentSlide.getSelectedElements().contains(draggedElement)) {
+                currentSlide.selectElement(draggedElement);
+            } else if (e.isControlDown() && currentSlide.getSelectedElements().contains(draggedElement)) {
+                // Ctrl-clicking a selected element deselects it
+                currentSlide.removeFromSelection(draggedElement);
+                draggedElement = null; // Don't drag it
+                isDragging = false;
+            } else if (e.isControlDown()) {
+                currentSlide.addToSelection(draggedElement);
+            }
+            notifySelectionChanged();
+        } else {
+            // Clicked on empty canvas space
+            currentSlide.clearSelection();
+            notifySelectionChanged();
+            selectionStart = p;
+            selectionRect = new Rectangle(p.x, p.y, 0, 0);
+        }
+        repaint();
     }
     
     @Override
@@ -537,6 +509,7 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         selectionStart = null;
         selectionRect = null;
         
+        notifyContentChanged();
         repaint();
     }
     
@@ -662,6 +635,7 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
             editingTextElement = null;
             editStartPoint = null;
             
+            notifyContentChanged();
             revalidate();
             repaint();
         }
@@ -677,6 +651,7 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
             editingTextElement = null;
             editStartPoint = null;
             
+            notifyContentChanged();
             revalidate();
             repaint();
         }
@@ -717,7 +692,7 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
             if (!newText.equals(textElement.getText())) {
                 EditTextCommand command = new EditTextCommand(textElement, textElement.getText(), newText);
                 commandManager.executeCommand(command);
-                repaint();
+                notifyContentChanged();
             }
             dialog.dispose();
         });
@@ -963,11 +938,13 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         } else if (ctrlPressed && keyCode == KeyEvent.VK_Z) {
             commandManager.undo();
             notifySelectionChanged();
+            notifyContentChanged();
             repaint();
             
         } else if (ctrlPressed && keyCode == KeyEvent.VK_Y) {
             commandManager.redo();
             notifySelectionChanged();
+            notifyContentChanged();
             repaint();
             
         } else if (currentSlide.hasSelection()) {
@@ -991,6 +968,7 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
                 for (SlideElement<?> element : currentSlide.getSelectedElements()) {
                     element.move(deltaX, deltaY);
                 }
+                notifyContentChanged();
                 repaint();
             }
         }
@@ -1013,6 +991,13 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         }
     }
     
+    private void notifyContentChanged() {
+        if (onContentChanged != null) {
+            onContentChanged.run();
+        }
+        repaint();
+    }
+    
     // Getter和Setter
     public double getZoomLevel() { return zoomLevel; }
     
@@ -1031,6 +1016,14 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
     
     public void resetZoom() {
         setZoomLevel(1.0);
+    }
+    
+    public void fitToWindow() {
+        if (getWidth() > 0 && getHeight() > 0) {
+            double widthRatio = (double) getWidth() / CANVAS_WIDTH;
+            double heightRatio = (double) getHeight() / CANVAS_HEIGHT;
+            setZoomLevel(Math.min(widthRatio, heightRatio));
+        }
     }
     
     public boolean isShowGrid() { return showGrid; }
@@ -1262,6 +1255,7 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
                 // 选中新创建的元素
                 currentSlide.selectElement(newElement);
                 notifySelectionChanged();
+                notifyContentChanged();
                 repaint();
                 
                 return true;
@@ -1271,5 +1265,10 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
                 return false;
             }
         }
+    }
+    
+    private SlideElement<?> findTopmostElementAt(Point p) {
+        if (currentSlide == null) return null;
+        return currentSlide.findElementsAt(p).stream().findFirst().orElse(null);
     }
 } 

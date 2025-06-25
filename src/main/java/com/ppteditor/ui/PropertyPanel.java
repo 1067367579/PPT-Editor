@@ -18,6 +18,7 @@ public class PropertyPanel extends JPanel {
     
     private SlideElement<?> currentElement;
     private Set<SlideElement<?>> selectedElements;
+    private Slide currentSlideContext; // Explicitly hold the slide context
     
     // 通用属性组件
     private JSpinner xSpinner;
@@ -46,11 +47,6 @@ public class PropertyPanel extends JPanel {
     private JTextField hyperlinkField;
     private JButton setHyperlinkButton;
     private JButton clearHyperlinkButton;
-    
-    // 动画组件
-    private JComboBox<AnimationType> animationCombo;
-    private JSpinner durationSpinner;
-    private JPanel animationPanel;
     
     // 对齐按钮
     private JPanel alignmentPanel;
@@ -108,9 +104,6 @@ public class PropertyPanel extends JPanel {
         // 超链接面板
         panel.add(createHyperlinkPanel());
         panel.add(Box.createVerticalStrut(10));
-        
-        // 动画面板
-        panel.add(createAnimationPanel());
         
         panel.add(Box.createVerticalGlue());
         
@@ -377,68 +370,6 @@ public class PropertyPanel extends JPanel {
         return panel;
     }
     
-    private JPanel createAnimationPanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(new TitledBorder("幻灯片动画"));
-        
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(2, 2, 2, 2);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        
-        // 动画类型选择
-        gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2;
-        panel.add(new JLabel("切换动画:"), gbc);
-        
-        gbc.gridy = 1;
-        animationCombo = new JComboBox<>(AnimationType.values());
-        animationCombo.setRenderer(new DefaultListCellRenderer() {
-            @Override
-            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
-                    boolean isSelected, boolean cellHasFocus) {
-                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                if (value instanceof AnimationType) {
-                    setText(((AnimationType) value).getDisplayName());
-                }
-                return this;
-            }
-        });
-        animationCombo.addActionListener(e -> updateSlideAnimation());
-        panel.add(animationCombo, gbc);
-        
-        // 动画持续时间
-        gbc.gridy = 2; gbc.gridwidth = 1;
-        panel.add(new JLabel("时长(ms):"), gbc);
-        
-        gbc.gridx = 1;
-        durationSpinner = new JSpinner(new SpinnerNumberModel(500, 100, 5000, 100));
-        durationSpinner.addChangeListener(e -> updateSlideAnimation());
-        panel.add(durationSpinner, gbc);
-        
-        // 预览按钮
-        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2;
-        JButton previewButton = new JButton("预览动画");
-        previewButton.addActionListener(e -> previewAnimation());
-        panel.add(previewButton, gbc);
-        
-        return panel;
-    }
-    
-    private void updateSlideAnimation() {
-        // 这个方法将由MainWindow或SlideCanvas调用
-        // 暂时留空，后续实现
-    }
-    
-    private void previewAnimation() {
-        // 动画预览功能
-        AnimationType selectedType = (AnimationType) animationCombo.getSelectedItem();
-        int duration = (Integer) durationSpinner.getValue();
-        
-        JOptionPane.showMessageDialog(this, 
-            "预览动画: " + selectedType.getDisplayName() + " (" + duration + "ms)", 
-            "动画预览", 
-            JOptionPane.INFORMATION_MESSAGE);
-    }
-    
     private void updateHyperlinkPlaceholder(JComboBox<String> linkTypeCombo) {
         String selectedType = (String) linkTypeCombo.getSelectedItem();
         switch (selectedType) {
@@ -496,26 +427,46 @@ public class PropertyPanel extends JPanel {
         }
     }
     
+    public void setSlideContext(Slide slide) {
+        this.currentSlideContext = slide;
+        // If no element is selected, update the UI for the new slide context
+        if (selectedElements == null || selectedElements.isEmpty()) {
+            updateUIForSlide();
+        }
+    }
+    
     public void setSelectedElements(Set<SlideElement<?>> elements) {
+        // Guard clause: Do not proceed if UI is not yet initialized
+        if (xSpinner == null) return;
+
         this.selectedElements = elements;
-        
-        if (elements.isEmpty()) {
-            currentElement = null;
-            setComponentsEnabled(false);
+        if (elements == null || elements.isEmpty()) {
+            // No elements selected, show properties for the current slide
+            updateUIForSlide();
         } else if (elements.size() == 1) {
-            currentElement = elements.iterator().next();
-            setComponentsEnabled(true);
+            // Single element selected
+            this.currentElement = elements.iterator().next();
             updatePropertyUI();
         } else {
-            currentElement = null;
-            setComponentsEnabled(true);
-            // 多选时显示通用属性
+            // Multiple elements selected
+            this.currentElement = null;
             updateUIForMultipleSelection();
         }
     }
     
+    private void updateUIForSlide() {
+        isUpdatingUI = true;
+        setComponentsEnabled(false);
+        textPropertiesPanel.setVisible(false);
+        shapePropertiesPanel.setVisible(false);
+        isUpdatingUI = false;
+    }
+    
     private void updatePropertyUI() {
-        if (currentElement == null) return;
+        if (currentElement == null) {
+            setComponentsEnabled(false);
+            return;
+        }
         
         // 设置标志位，防止更新UI时触发回调
         isUpdatingUI = true;
@@ -818,20 +769,45 @@ public class PropertyPanel extends JPanel {
     private void alignCenterVertical() { if (onAlignCenterVertical != null) onAlignCenterVertical.run(); }
     
     private void setComponentsEnabled(boolean enabled) {
+        // Position and size are always available
         xSpinner.setEnabled(enabled);
         ySpinner.setEnabled(enabled);
         widthSpinner.setEnabled(enabled);
         heightSpinner.setEnabled(enabled);
-        textField.setEnabled(enabled);
-        fontFamilyCombo.setEnabled(enabled);
-        fontSizeSpinner.setEnabled(enabled);
-        boldButton.setEnabled(enabled);
-        italicButton.setEnabled(enabled);
-        underlineButton.setEnabled(enabled);
-        textColorButton.setEnabled(enabled);
-        fillColorButton.setEnabled(enabled);
-        borderColorButton.setEnabled(enabled);
-        borderWidthSpinner.setEnabled(enabled);
+
+        // Check if other panels are initialized before using them
+        if (textPropertiesPanel != null) {
+            textField.setEnabled(enabled);
+            fontFamilyCombo.setEnabled(enabled);
+            fontSizeSpinner.setEnabled(enabled);
+            boldButton.setEnabled(enabled);
+            italicButton.setEnabled(enabled);
+            underlineButton.setEnabled(enabled);
+            textColorButton.setEnabled(enabled);
+            for (JToggleButton button : textAlignButtons) {
+                button.setEnabled(enabled);
+            }
+        }
+        
+        if (shapePropertiesPanel != null) {
+            fillColorButton.setEnabled(enabled);
+            borderColorButton.setEnabled(enabled);
+            borderWidthSpinner.setEnabled(enabled);
+        }
+
+        if (hyperlinkField != null) {
+            hyperlinkField.setEnabled(enabled);
+            setHyperlinkButton.setEnabled(enabled);
+            clearHyperlinkButton.setEnabled(enabled);
+        }
+
+        if (alignmentPanel != null) {
+             for (Component comp : alignmentPanel.getComponents()) {
+                 if (comp instanceof JButton) {
+                     comp.setEnabled(enabled);
+                 }
+             }
+        }
     }
     
     /**

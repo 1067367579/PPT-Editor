@@ -8,6 +8,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * 幻灯片缩略图面板
@@ -22,7 +23,7 @@ public class SlidePanel extends JPanel {
     private Presentation presentation;
     private JList<Slide> slideList;
     private DefaultListModel<Slide> listModel;
-    private Runnable onSlideSelected;
+    private Consumer<Integer> onSlideSelected;
     private CommandManager commandManager;
     
     // 拖拽状态
@@ -56,6 +57,13 @@ public class SlidePanel extends JPanel {
         // 布局
         add(toolBar, BorderLayout.NORTH);
         add(new JScrollPane(slideList), BorderLayout.CENTER);
+        
+        slideList.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting() && onSlideSelected != null) {
+                int selectedIndex = slideList.getSelectedIndex();
+                onSlideSelected.accept(selectedIndex);
+            }
+        });
     }
     
     private JToolBar createToolBar() {
@@ -82,13 +90,6 @@ public class SlidePanel extends JPanel {
     }
     
     private void setupEventHandlers() {
-        // 选择事件
-        slideList.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                notifySlideSelected();
-            }
-        });
-        
         // 鼠标事件 - 支持拖拽排序
         slideList.addMouseListener(new MouseAdapter() {
             @Override
@@ -185,22 +186,27 @@ public class SlidePanel extends JPanel {
     }
     
     public void updateSlideList() {
-        listModel.clear();
         if (presentation != null) {
-            List<Slide> slides = presentation.getSlides();
-            for (Slide slide : slides) {
+            // 1. Store the currently selected index
+            int selectedIndex = slideList.getSelectedIndex();
+            
+            // 2. Clear and repopulate the model
+            listModel.clear();
+            for (Slide slide : presentation.getSlides()) {
                 listModel.addElement(slide);
             }
             
-            // 选中当前幻灯片
-            int currentIndex = presentation.getCurrentSlideIndex();
-            if (currentIndex >= 0 && currentIndex < listModel.size()) {
-                slideList.setSelectedIndex(currentIndex);
+            // 3. Restore the selection
+            if (selectedIndex >= 0 && selectedIndex < listModel.getSize()) {
+                slideList.setSelectedIndex(selectedIndex);
             }
+            
+            // Repaint to ensure thumbnails are updated
+            repaint();
         }
     }
     
-    public void setOnSlideSelected(Runnable callback) {
+    public void setOnSlideSelected(Consumer<Integer> callback) {
         this.onSlideSelected = callback;
     }
     
@@ -289,7 +295,7 @@ public class SlidePanel extends JPanel {
         }
         
         if (onSlideSelected != null) {
-            onSlideSelected.run();
+            onSlideSelected.accept(slideList.getSelectedIndex());
         }
     }
     

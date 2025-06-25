@@ -5,6 +5,7 @@ import com.ppteditor.core.command.CommandManager;
 import com.ppteditor.core.model.Presentation;
 import com.ppteditor.core.io.PresentationFileManager;
 import com.ppteditor.core.io.PresentationExporter;
+import com.ppteditor.core.model.Slide;
 
 import javax.swing.*;
 import java.awt.*;
@@ -146,6 +147,14 @@ public class MainWindow extends JFrame {
                    e -> delete());
         
         menuBar.add(editMenu);
+        
+        // 设计菜单
+        JMenu designMenu = new JMenu("设计(D)");
+        designMenu.setMnemonic(KeyEvent.VK_D);
+        
+        addMenuItem(designMenu, "设置过渡动画...", 0, null, e -> openTransitionSettings());
+        
+        menuBar.add(designMenu);
         
         // 插入菜单
         JMenu insertMenu = new JMenu("插入(I)");
@@ -316,17 +325,28 @@ public class MainWindow extends JFrame {
     }
     
     private void setupComponentInteractions() {
-        // 画布选择变化时更新属性面板
+        // 当画布中的选择变化时，更新属性面板
         slideCanvas.setOnSelectionChanged(() -> {
             propertyPanel.setSelectedElements(slideCanvas.getSelectedElements());
-            updateStatus("选中了 " + slideCanvas.getSelectedElements().size() + " 个元素");
         });
-        
-        // 幻灯片切换时更新画布
-        slidePanel.setOnSlideSelected(() -> {
-            if (currentPresentation != null) {
-                slideCanvas.setSlide(currentPresentation.getCurrentSlide());
-                updateStatus("切换到: " + currentPresentation.getCurrentSlide().getName());
+
+        // 当画布内容变化时，更新幻灯片缩略图列表
+        slideCanvas.setOnContentChanged(() -> {
+            if (slidePanel != null) {
+                slidePanel.updateSlideList();
+            }
+        });
+
+        // 当幻灯片列表中选择的幻灯片变化时，更新所有相关组件
+        slidePanel.setOnSlideSelected(index -> {
+            if (index >= 0 && index < currentPresentation.getSlides().size()) {
+                currentPresentation.setCurrentSlideIndex(index);
+                Slide newSlide = currentPresentation.getCurrentSlide();
+                
+                slideCanvas.setSlide(newSlide);
+                propertyPanel.setSlideContext(newSlide);
+                
+                updateStatus("切换到: " + newSlide.getName());
             }
         });
         
@@ -664,32 +684,31 @@ public class MainWindow extends JFrame {
     }
     
     private void fitToWindow() {
-        if (slideCanvas != null) {
-            slideCanvas.resetZoom();
-            updateStatus("重置缩放到 100%");
+        slideCanvas.fitToWindow();
+        updateStatus("视图已缩放至适合窗口大小");
+    }
+    
+    private void openTransitionSettings() {
+        if (currentPresentation != null) {
+            TransitionSettingsDialog dialog = new TransitionSettingsDialog(this, currentPresentation);
+            dialog.setVisible(true);
+        } else {
+            JOptionPane.showMessageDialog(this, "请先打开或创建一个演示文稿。", "提示", JOptionPane.INFORMATION_MESSAGE);
         }
     }
     
     private void startPresentationMode() {
-        if (currentPresentation == null || currentPresentation.getSlides().isEmpty()) {
-            JOptionPane.showMessageDialog(this, 
-                "没有可演示的幻灯片", 
-                "提示", 
-                JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        
-        try {
-            updateStatus("启动演示模式");
-            PresentationWindow presentationWindow = new PresentationWindow(currentPresentation);
-            // 演示窗口会自动显示并进入全屏模式
-        } catch (Exception e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, 
-                "启动演示模式失败: " + e.getMessage(), 
-                "错误", 
-                JOptionPane.ERROR_MESSAGE);
-            updateStatus("演示模式启动失败");
+        if (currentPresentation != null && !currentPresentation.getSlides().isEmpty()) {
+            int selectedIndex = slidePanel.getSelectedIndex();
+            if (selectedIndex < 0) {
+                selectedIndex = 0;
+            }
+            
+            PresentationPlayerWindow player = new PresentationPlayerWindow(currentPresentation, selectedIndex);
+            player.start();
+            updateStatus("已进入演示模式。按ESC键退出。");
+        } else {
+            JOptionPane.showMessageDialog(this, "没有可供演示的幻灯片。", "错误", JOptionPane.ERROR_MESSAGE);
         }
     }
     
@@ -796,11 +815,7 @@ public class MainWindow extends JFrame {
     }
     
     public void refreshCanvas() {
-        if (slideCanvas != null) {
-            slideCanvas.repaint();
-        }
-        if (slidePanel != null) {
-            slidePanel.repaint();
-        }
+        slideCanvas.repaint();
+        slidePanel.repaint();
     }
 } 

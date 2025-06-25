@@ -3,6 +3,8 @@ package com.ppteditor.core.io;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import com.fasterxml.jackson.annotation.JsonIgnoreType;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.ppteditor.core.model.*;
 
 import java.io.*;
@@ -11,6 +13,7 @@ import java.nio.file.Path;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
+import java.awt.Rectangle;
 
 /**
  * 演示文稿文件管理器
@@ -36,6 +39,7 @@ public class PresentationFileManager {
         objectMapper.addMixIn(java.awt.Font.class, IgnoreTypeMixin.class);
         // 暂时移除Color的Mixin，避免序列化冲突
         // objectMapper.addMixIn(java.awt.Color.class, ColorMixin.class);
+        objectMapper.addMixIn(Rectangle.class, IgnoreRectangleMixin.class);
     }
     
     // 忽略类型信息的Mixin
@@ -64,6 +68,10 @@ public class PresentationFileManager {
         @com.fasterxml.jackson.annotation.JsonIgnore
         public abstract int getAlpha();
     }
+    
+    // Mixin class to ignore Rectangle type during serialization
+    @JsonIgnoreType
+    public static class IgnoreRectangleMixin {}
     
     /**
      * 保存演示文稿到JSON格式文件

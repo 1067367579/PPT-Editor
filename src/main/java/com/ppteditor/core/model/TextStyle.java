@@ -161,6 +161,7 @@ public class TextStyle implements ElementStyle, java.io.Serializable {
     public void setTextColor(Color textColor) { this.textColor = textColor; }
     
     public Color getBackgroundColor() { return backgroundColor; }
+    
     public void setBackgroundColor(Color backgroundColor) { this.backgroundColor = backgroundColor; }
     
     public int getAlignment() { return alignment; }

@@ -10,26 +10,36 @@ import com.ppteditor.core.model.SlideElement;
 public class AddElementCommand implements Command {
     
     private final Slide slide;
-    private final SlideElement<?> element;
+    private final java.util.List<SlideElement<?>> elements;
     private final String description;
+    
+    public AddElementCommand(Slide slide, java.util.List<SlideElement<?>> elements) {
+        this.slide = slide;
+        this.elements = new java.util.ArrayList<>(elements);
+        if (elements.size() == 1) {
+            this.description = "添加" + elements.get(0).getType().getDisplayName();
+        } else {
+            this.description = "添加" + elements.size() + "个元素";
+        }
+    }
     
     public AddElementCommand(Slide slide, SlideElement<?> element) {
         this.slide = slide;
-        this.element = element;
+        this.elements = java.util.Collections.singletonList(element);
         this.description = "添加" + element.getType().getDisplayName();
     }
     
     @Override
     public void execute() {
-        if (slide != null && element != null) {
-            slide.addElement(element);
+        if (slide != null && elements != null) {
+            elements.forEach(slide::addElement);
         }
     }
     
     @Override
     public void undo() {
-        if (slide != null && element != null) {
-            slide.removeElement(element);
+        if (slide != null && elements != null) {
+            elements.forEach(slide::removeElement);
         }
     }
     
@@ -42,7 +52,7 @@ public class AddElementCommand implements Command {
         return slide;
     }
     
-    public SlideElement<?> getElement() {
-        return element;
+    public java.util.List<SlideElement<?>> getElements() {
+        return elements;
     }
 } 
