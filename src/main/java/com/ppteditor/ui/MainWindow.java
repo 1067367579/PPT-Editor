@@ -6,6 +6,8 @@ import com.ppteditor.core.model.Presentation;
 import com.ppteditor.core.io.PresentationFileManager;
 import com.ppteditor.core.io.PresentationExporter;
 import com.ppteditor.core.model.Slide;
+import com.ppteditor.core.model.IconElement;
+import com.ppteditor.core.model.SlideMaster;
 
 import javax.swing.*;
 import java.awt.*;
@@ -33,7 +35,7 @@ public class MainWindow extends JFrame {
     private CommandManager commandManager;
     private SlideCanvas slideCanvas;
     private SlidePanel slidePanel;
-    private PropertyPanel propertyPanel;
+
     private TemplatePanel templatePanel;
     private Presentation currentPresentation;
     private PresentationFileManager fileManager;
@@ -165,6 +167,16 @@ public class MainWindow extends JFrame {
         addMenuItem(insertMenu, "椭圆", 0, null, e -> insertEllipse());
         addMenuItem(insertMenu, "图片", 0, null, e -> insertImage());
         
+        // 图标子菜单
+        JMenu iconMenu = new JMenu("图标");
+        addMenuItem(iconMenu, "星形", 0, null, e -> insertIcon(IconElement.IconType.STAR));
+        addMenuItem(iconMenu, "箭头", 0, null, e -> insertIcon(IconElement.IconType.ARROW_RIGHT));
+        addMenuItem(iconMenu, "心形", 0, null, e -> insertIcon(IconElement.IconType.HEART));
+        addMenuItem(iconMenu, "三角形", 0, null, e -> insertIcon(IconElement.IconType.TRIANGLE));
+        addMenuItem(iconMenu, "菱形", 0, null, e -> insertIcon(IconElement.IconType.DIAMOND));
+        addMenuItem(iconMenu, "对勾", 0, null, e -> insertIcon(IconElement.IconType.CHECK));
+        insertMenu.add(iconMenu);
+        
         menuBar.add(insertMenu);
         
         // 视图菜单
@@ -188,6 +200,10 @@ public class MainWindow extends JFrame {
         addMenuItem(viewMenu, "演示模式", KeyEvent.VK_F5,
                    KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0),
                    e -> startPresentationMode());
+        
+        viewMenu.addSeparator();
+        
+        addMenuItem(viewMenu, "母版设置", 0, null, e -> openMasterSettings());
         
         menuBar.add(viewMenu);
         
@@ -266,24 +282,22 @@ public class MainWindow extends JFrame {
         // 初始化核心组件
         slideCanvas = new SlideCanvas();
         slidePanel = new SlidePanel();
-        propertyPanel = new PropertyPanel();
         templatePanel = new TemplatePanel(this);
+        // 删除propertyPanel，不再需要右边栏
         
         // 设置组件的最小尺寸，确保可见性
-        slidePanel.setMinimumSize(new Dimension(180, 250));
-        templatePanel.setMinimumSize(new Dimension(180, 200));
-        propertyPanel.setMinimumSize(new Dimension(250, 400));
-        slideCanvas.setMinimumSize(new Dimension(600, 400));
+        slidePanel.setMinimumSize(new Dimension(150, 250));
+        templatePanel.setMinimumSize(new Dimension(150, 200));
+        slideCanvas.setMinimumSize(new Dimension(800, 500));
         
-        // 设置首选尺寸
-        slidePanel.setPreferredSize(new Dimension(200, 350));
-        templatePanel.setPreferredSize(new Dimension(200, 250));
-        propertyPanel.setPreferredSize(new Dimension(280, 600));
+        // 设置首选尺寸（缩窄左边栏）
+        slidePanel.setPreferredSize(new Dimension(160, 350));
+        templatePanel.setPreferredSize(new Dimension(160, 250));
         
         // 创建中央画布区域（带滚动条）
         JScrollPane canvasScrollPane = new JScrollPane(slideCanvas);
-        canvasScrollPane.setMinimumSize(new Dimension(600, 400));
-        canvasScrollPane.setPreferredSize(new Dimension(800, 450));
+        canvasScrollPane.setMinimumSize(new Dimension(800, 500));
+        canvasScrollPane.setPreferredSize(new Dimension(1000, 600));
         canvasScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         canvasScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         
@@ -295,18 +309,11 @@ public class MainWindow extends JFrame {
         leftSidePanel.setOneTouchExpandable(true);
         leftSidePanel.setContinuousLayout(true);
         
-        // 创建左侧分割面板（左侧面板 + 画布）
-        JSplitPane leftSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftSidePanel, canvasScrollPane);
-        leftSplitPane.setResizeWeight(0.0); // 左侧固定比例
-        leftSplitPane.setDividerSize(6);
-        leftSplitPane.setDividerLocation(220);
-        leftSplitPane.setOneTouchExpandable(true);
-        leftSplitPane.setContinuousLayout(true);
-        
-        // 创建主分割面板（左侧+画布 vs 属性面板）
-        JSplitPane mainSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftSplitPane, propertyPanel);
-        mainSplitPane.setResizeWeight(0.8); // 左侧占80%，属性面板占20%
+        // 主分割面板（左侧面板 + 画布），删除右边栏
+        JSplitPane mainSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftSidePanel, canvasScrollPane);
+        mainSplitPane.setResizeWeight(0.0); // 左侧固定宽度
         mainSplitPane.setDividerSize(6);
+        mainSplitPane.setDividerLocation(180); // 更窄的左边栏
         mainSplitPane.setOneTouchExpandable(true);
         mainSplitPane.setContinuousLayout(true);
         
@@ -320,16 +327,14 @@ public class MainWindow extends JFrame {
         
         contentPanel.add(mainSplitPane, BorderLayout.CENTER);
         
+        // 设置CommandManager到SlideCanvas（确保使用同一个实例）
+        slideCanvas.setCommandManager(commandManager);
+        
         // 设置事件处理
         setupComponentInteractions();
     }
     
     private void setupComponentInteractions() {
-        // 当画布中的选择变化时，更新属性面板
-        slideCanvas.setOnSelectionChanged(() -> {
-            propertyPanel.setSelectedElements(slideCanvas.getSelectedElements());
-        });
-
         // 当画布内容变化时，更新幻灯片缩略图列表
         slideCanvas.setOnContentChanged(() -> {
             if (slidePanel != null) {
@@ -344,27 +349,10 @@ public class MainWindow extends JFrame {
                 Slide newSlide = currentPresentation.getCurrentSlide();
                 
                 slideCanvas.setSlide(newSlide);
-                propertyPanel.setSlideContext(newSlide);
                 
                 updateStatus("切换到: " + newSlide.getName());
             }
         });
-        
-        // 属性修改时刷新画布
-        propertyPanel.setOnElementChanged(() -> {
-            slideCanvas.repaint();
-            slidePanel.updateSlideList();
-        });
-        
-        // 设置对齐回调
-        propertyPanel.setAlignmentCallbacks(
-            () -> slideCanvas.alignLeft(),
-            () -> slideCanvas.alignRight(),
-            () -> slideCanvas.alignTop(),
-            () -> slideCanvas.alignBottom(),
-            () -> slideCanvas.alignCenterHorizontal(),
-            () -> slideCanvas.alignCenterVertical()
-        );
     }
     
     private void createStatusBar() {
@@ -415,6 +403,8 @@ public class MainWindow extends JFrame {
             File selectedFile = fileChooser.getSelectedFile();
             try {
                 currentPresentation = PresentationFileManager.loadPresentation(selectedFile);
+                currentPresentation.setFilePath(selectedFile.getAbsolutePath());
+                currentPresentation.markAsSaved();
                 slidePanel.setPresentation(currentPresentation);
                 slideCanvas.setSlide(currentPresentation.getCurrentSlide());
                 updateStatus("打开演示文稿: " + selectedFile.getName());
@@ -444,6 +434,7 @@ public class MainWindow extends JFrame {
         
         try {
             PresentationFileManager.savePresentation(currentPresentation, new File(filePath));
+            currentPresentation.markAsSaved();
             updateStatus("保存成功: " + new File(filePath).getName());
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, 
@@ -486,6 +477,8 @@ public class MainWindow extends JFrame {
             File selectedFile = fileChooser.getSelectedFile();
             try {
                 PresentationFileManager.savePresentation(currentPresentation, selectedFile);
+                currentPresentation.setFilePath(selectedFile.getAbsolutePath());
+                currentPresentation.markAsSaved();
                 updateStatus("另存为成功: " + selectedFile.getName());
                 setTitle(PPTEditorApplication.AppInfo.getFullName() + " - " + selectedFile.getName());
                 
@@ -669,6 +662,13 @@ public class MainWindow extends JFrame {
         }
     }
     
+    private void insertIcon(IconElement.IconType iconType) {
+        if (slideCanvas != null) {
+            slideCanvas.addIconElement(iconType);
+            updateStatus("插入图标: " + iconType.getDisplayName());
+        }
+    }
+    
     private void zoomIn() {
         if (slideCanvas != null) {
             slideCanvas.zoomIn();
@@ -712,6 +712,38 @@ public class MainWindow extends JFrame {
         }
     }
     
+    private void openMasterSettings() {
+        if (currentPresentation == null) {
+            JOptionPane.showMessageDialog(this, "请先创建或打开一个演示文稿", "提示", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        SlideMasterSettingsDialog dialog = new SlideMasterSettingsDialog(this, currentPresentation);
+        dialog.setVisible(true);
+        
+        if (dialog.isConfirmed()) {
+            SlideMaster newMaster = dialog.getSlideMaster();
+            
+            // 应用新的母版设置到演示文稿
+            currentPresentation.setSlideMaster(newMaster);
+            
+            // 询问是否应用到所有现有幻灯片
+            int choice = JOptionPane.showConfirmDialog(this,
+                "是否将新的母版设置应用到所有现有幻灯片？",
+                "应用母版设置",
+                JOptionPane.YES_NO_OPTION);
+            
+            if (choice == JOptionPane.YES_OPTION) {
+                newMaster.applyToAllSlides(currentPresentation.getSlides());
+            }
+            
+            // 刷新界面
+            slideCanvas.repaint();
+            slidePanel.updateSlideList();
+            updateStatus("母版设置已更新");
+        }
+    }
+    
     private void showAbout() {
         JOptionPane.showMessageDialog(this,
             PPTEditorApplication.AppInfo.getAboutText(),
@@ -743,40 +775,25 @@ public class MainWindow extends JFrame {
     private void adjustLayoutOnResize() {
         SwingUtilities.invokeLater(() -> {
             if (contentPanel != null) {
-                // 获取主分割面板
+                // 获取主分割面板（现在只有左边栏和画布）
                 Component[] components = contentPanel.getComponents();
                 if (components.length > 0 && components[0] instanceof JSplitPane) {
                     JSplitPane mainSplitPane = (JSplitPane) components[0];
                     
-                    // 计算动态分割位置
-                    int windowWidth = getWidth();
-                    int propertyPanelWidth = Math.max(250, Math.min(350, windowWidth / 5)); // 属性面板占1/5宽度，最小250px，最大350px
-                    int mainDividerLocation = windowWidth - propertyPanelWidth - 20; // 留些边距
+                    // 左侧面板固定宽度为180px
+                    mainSplitPane.setDividerLocation(180);
                     
-                    // 设置主分割面板位置
-                    mainSplitPane.setDividerLocation(mainDividerLocation);
-                    
-                    // 获取左侧分割面板
+                    // 获取左侧垂直分割面板
                     Component leftComponent = mainSplitPane.getLeftComponent();
                     if (leftComponent instanceof JSplitPane) {
-                        JSplitPane leftSplitPane = (JSplitPane) leftComponent;
+                        JSplitPane leftSidePanel = (JSplitPane) leftComponent;
                         
-                        // 左侧面板宽度固定为200-250px
-                        int leftPanelWidth = Math.max(200, Math.min(250, windowWidth / 6));
-                        leftSplitPane.setDividerLocation(leftPanelWidth);
+                        // 动态调整幻灯片面板和模板面板的比例
+                        int windowHeight = getHeight();
+                        int availableHeight = windowHeight - 100; // 减去菜单栏、工具栏、状态栏的高度
+                        int slidePanelHeight = (int)(availableHeight * 0.6); // 60%给幻灯片面板
                         
-                        // 获取左侧垂直分割面板
-                        Component leftSideComponent = leftSplitPane.getLeftComponent();
-                        if (leftSideComponent instanceof JSplitPane) {
-                            JSplitPane leftSidePanel = (JSplitPane) leftSideComponent;
-                            
-                            // 动态调整幻灯片面板和模板面板的比例
-                            int windowHeight = getHeight();
-                            int availableHeight = windowHeight - 100; // 减去菜单栏、工具栏、状态栏的高度
-                            int slidePanelHeight = (int)(availableHeight * 0.6); // 60%给幻灯片面板
-                            
-                            leftSidePanel.setDividerLocation(slidePanelHeight);
-                        }
+                        leftSidePanel.setDividerLocation(slidePanelHeight);
                     }
                 }
             }

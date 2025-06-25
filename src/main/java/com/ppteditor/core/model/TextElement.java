@@ -272,52 +272,132 @@ public class TextElement extends SlideElement<TextStyle> implements java.io.Seri
     }
     
     /**
-     * 绘制分段文本（支持部分超链接）
+     * 绘制分段文本（支持部分超链接和对齐）
      */
     private void drawSegmentedText(Graphics2D g2d, int baseY) {
-        FontMetrics fm = g2d.getFontMetrics();
-        int currentX = (int)x + 5;
+        FontMetrics baseFm = g2d.getFontMetrics();
+        int lineHeight = (int)(baseFm.getHeight() * style.getLineSpacing());
+        
+        // 首先构建所有行的内容，以便计算对齐位置
+        List<SegmentLine> lines = buildSegmentLines();
+        
         int currentY = baseY;
-        int lineHeight = (int)(fm.getHeight() * style.getLineSpacing());
+        for (SegmentLine line : lines) {
+            // 计算整行的对齐位置
+            int lineX = calculateLineX(line);
+            int currentX = lineX;
+            
+            // 绘制该行的所有片段
+            for (SegmentPart part : line.parts) {
+                // 设置片段样式
+                Font segmentFont = createSegmentFont(part.segment);
+                g2d.setFont(segmentFont);
+                FontMetrics fm = g2d.getFontMetrics();
+                
+                // 设置片段颜色
+                Color segmentColor = part.segment.getTextColor();
+                if (segmentColor == null) {
+                    segmentColor = part.segment.isHyperlink() ? new Color(0, 102, 204) : style.getTextColor();
+                }
+                g2d.setColor(segmentColor);
+                
+                // 绘制文本
+                g2d.drawString(part.text, currentX, currentY);
+                
+                // 绘制下划线
+                if (part.segment.isUnderline() || part.segment.isHyperlink()) {
+                    int lineWidth = fm.stringWidth(part.text);
+                    g2d.drawLine(currentX, currentY + 2, currentX + lineWidth, currentY + 2);
+                }
+                
+                // 更新X位置
+                currentX += fm.stringWidth(part.text);
+            }
+            
+            currentY += lineHeight;
+        }
+    }
+    
+    // 辅助类：表示一行中的一个文本片段部分
+    private static class SegmentPart {
+        TextSegment segment;
+        String text;
+        
+        SegmentPart(TextSegment segment, String text) {
+            this.segment = segment;
+            this.text = text;
+        }
+    }
+    
+    // 辅助类：表示一行文本
+    private static class SegmentLine {
+        List<SegmentPart> parts = new ArrayList<>();
+        String fullLineText = "";
+        
+        void addPart(SegmentPart part) {
+            parts.add(part);
+            fullLineText += part.text;
+        }
+    }
+    
+    // 构建分段行
+    private List<SegmentLine> buildSegmentLines() {
+        List<SegmentLine> lines = new ArrayList<>();
+        SegmentLine currentLine = new SegmentLine();
         
         for (TextSegment segment : textSegments) {
             String segmentText = segment.getText();
             if (segmentText == null || segmentText.isEmpty()) continue;
             
-            // 设置片段样式
-            Font segmentFont = createSegmentFont(segment);
-            g2d.setFont(segmentFont);
+            // 按换行符分割
+            String[] segmentLines = segmentText.split("\n", -1); // -1 保留空字符串
             
-            // 设置片段颜色
-            Color segmentColor = segment.getTextColor();
-            if (segmentColor == null) {
-                segmentColor = segment.isHyperlink() ? new Color(0, 102, 204) : style.getTextColor();
-            }
-            g2d.setColor(segmentColor);
-            
-            // 处理换行
-            String[] lines = segmentText.split("\n");
-            for (int i = 0; i < lines.length; i++) {
-                String line = lines[i];
-                
+            for (int i = 0; i < segmentLines.length; i++) {
                 if (i > 0) {
-                    // 换行
-                    currentY += lineHeight;
-                    currentX = (int)x + 5;
+                    // 需要换行
+                    lines.add(currentLine);
+                    currentLine = new SegmentLine();
                 }
                 
-                // 绘制文本
-                g2d.drawString(line, currentX, currentY);
-                
-                // 绘制下划线
-                if (segment.isUnderline() || segment.isHyperlink()) {
-                    int lineWidth = fm.stringWidth(line);
-                    g2d.drawLine(currentX, currentY + 2, currentX + lineWidth, currentY + 2);
+                if (!segmentLines[i].isEmpty() || i == segmentLines.length - 1) {
+                    currentLine.addPart(new SegmentPart(segment, segmentLines[i]));
                 }
-                
-                // 更新X位置
-                currentX += fm.stringWidth(line);
             }
+        }
+        
+        if (!currentLine.parts.isEmpty() || lines.isEmpty()) {
+            lines.add(currentLine);
+        }
+        
+        return lines;
+    }
+    
+    // 计算行的X位置（支持对齐）
+    private int calculateLineX(SegmentLine line) {
+        // 创建临时Graphics2D计算文本宽度
+        java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        Graphics2D tempG2d = img.createGraphics();
+        tempG2d.setFont(style.getFont());
+        FontMetrics fm = tempG2d.getFontMetrics();
+        
+        int totalWidth = 0;
+        for (SegmentPart part : line.parts) {
+            Font segmentFont = createSegmentFont(part.segment);
+            tempG2d.setFont(segmentFont);
+            FontMetrics segmentFm = tempG2d.getFontMetrics();
+            totalWidth += segmentFm.stringWidth(part.text);
+        }
+        
+        tempG2d.dispose();
+        
+        // 根据对齐方式计算X位置
+        switch (style.getAlignment()) {
+            case TextStyle.ALIGN_CENTER: // 居中
+                return (int)(x + (width - totalWidth) / 2);
+            case TextStyle.ALIGN_RIGHT: // 右对齐
+                return (int)(x + width - totalWidth - 5);
+            default: // 左对齐
+                return (int)x + 5;
         }
     }
     
@@ -333,11 +413,12 @@ public class TextElement extends SlideElement<TextStyle> implements java.io.Seri
     }
     
     /**
-     * 设置文本并同步到片段
+     * 设置文本（保留现有的文本段设置）
      */
     public void setText(String text) {
         this.text = text;
-        if (useSegments) {
+        // 只有在没有使用文本段模式时才初始化片段
+        if (!useSegments && (textSegments == null || textSegments.isEmpty())) {
             initializeSegments();
         }
     }

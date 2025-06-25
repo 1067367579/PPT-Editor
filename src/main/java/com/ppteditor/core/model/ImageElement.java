@@ -206,6 +206,7 @@ public class ImageElement extends SlideElement<ShapeStyle> implements java.io.Se
         this.image = null; // 清除缓存，下次渲染时重新加载
     }
     
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public BufferedImage getImage() {
         return image;
     }

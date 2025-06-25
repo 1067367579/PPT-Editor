@@ -18,9 +18,9 @@ import java.util.List;
  */
 public class SlideCanvas extends JPanel implements MouseListener, MouseMotionListener, KeyListener {
     
-    // 画布尺寸（标准16:9比例）
-    public static final int CANVAS_WIDTH = 800;
-    public static final int CANVAS_HEIGHT = 450;
+    // 画布尺寸（标准16:9比例）- 使用母版定义的标准尺寸
+    public static final int CANVAS_WIDTH = SlideMaster.STANDARD_WIDTH;
+    public static final int CANVAS_HEIGHT = SlideMaster.STANDARD_HEIGHT;
     private static final int GRID_SIZE = 10;
     
     private Slide currentSlide;
@@ -86,6 +86,10 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
     
     public void setOnContentChanged(Runnable callback) {
         this.onContentChanged = callback;
+    }
+    
+    public void setCommandManager(CommandManager commandManager) {
+        this.commandManager = commandManager;
     }
     
     @Override
@@ -261,6 +265,23 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         }
     }
     
+    public void addIconElement(IconElement.IconType iconType) {
+        if (currentSlide == null) return;
+        
+        IconElement element = new IconElement(iconType, 100, 100, 80, 80);
+        
+        // 应用当前配色主题
+        applyCurrentColorTheme(element);
+        
+        AddElementCommand command = new AddElementCommand(currentSlide, element);
+        commandManager.executeCommand(command);
+        
+        currentSlide.selectElement(element);
+        notifySelectionChanged();
+        notifyContentChanged();
+        repaint();
+    }
+    
     // 删除选中元素
     public void deleteSelectedElements() {
         if (currentSlide == null || !currentSlide.hasSelection()) return;
@@ -403,7 +424,7 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         
         Point point = scalePoint(e.getPoint());
         
-        if (activeHandle != null && activeSelectionHandle != null) {
+        if (activeHandle != null) {
             // 处理缩放和旋转操作
             handleScaleRotateOperation(point);
             repaint();
@@ -549,10 +570,10 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
                 }
             }
             
-            // 双击编辑文本 - 使用内联编辑
+            // 双击编辑文本 - 使用增强编辑器
             if (e.getClickCount() == 2 && clickedElement instanceof TextElement) {
                 TextElement textElement = (TextElement) clickedElement;
-                startInlineTextEditing(textElement, e.getPoint());
+                editTextElement(textElement);
             }
         } else {
             // 点击空白区域，结束内联编辑
@@ -658,8 +679,15 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
     }
     
     private void editTextElement(TextElement textElement) {
-        // 创建内联编辑对话框
-        createInlineTextEditor(textElement);
+        // 使用增强的文本编辑器
+        Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+        EnhancedTextEditor editor = new EnhancedTextEditor(parentFrame, textElement, commandManager);
+        editor.setVisible(true);
+        
+        if (editor.isConfirmed()) {
+            notifyContentChanged();
+            repaint();
+        }
     }
     
     private void createInlineTextEditor(TextElement textElement) {
@@ -1129,19 +1157,58 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         Set<SlideElement<?>> selected = currentSlide.getSelectedElements();
         if (selected.isEmpty() || originalBounds == null) return;
         
-        SlideElement<?> element = selected.iterator().next();
-        
-        if (activeHandle == SelectionHandle.HandleType.ROTATION) {
-            // 旋转操作
-            double angle = SelectionHandle.calculateRotationAngle(originalBounds, dragStartPoint, currentPoint);
-            element.setRotation(originalRotation + Math.toDegrees(angle));
+        if (selected.size() == 1) {
+            // 单选：直接操作元素
+            SlideElement<?> element = selected.iterator().next();
             
-        } else {
-            // 缩放操作
-            Rectangle newBounds = SelectionHandle.calculateResizedBounds(
-                originalBounds, activeHandle, dragStartPoint, currentPoint);
+            if (activeHandle == SelectionHandle.HandleType.ROTATION) {
+                // 旋转操作
+                double angle = SelectionHandle.calculateRotationAngle(originalBounds, dragStartPoint, currentPoint);
+                element.setRotation(originalRotation + Math.toDegrees(angle));
                 
-            element.setBounds(newBounds.x, newBounds.y, newBounds.width, newBounds.height);
+            } else {
+                // 缩放操作
+                Rectangle newBounds = SelectionHandle.calculateResizedBounds(
+                    originalBounds, activeHandle, dragStartPoint, currentPoint);
+                    
+                element.setBounds(newBounds.x, newBounds.y, newBounds.width, newBounds.height);
+            }
+        } else if (selected.size() > 1) {
+            // 多选：按比例缩放所有选中元素
+            handleMultiSelectionScale(currentPoint);
+        }
+    }
+    
+    private void handleMultiSelectionScale(Point currentPoint) {
+        Set<SlideElement<?>> selected = currentSlide.getSelectedElements();
+        if (selected.isEmpty() || originalBounds == null) return;
+        
+        // 计算新的包围框
+        Rectangle newBounds = SelectionHandle.calculateResizedBounds(
+            originalBounds, activeHandle, dragStartPoint, currentPoint);
+        
+        // 计算缩放比例
+        double scaleX = (double) newBounds.width / originalBounds.width;
+        double scaleY = (double) newBounds.height / originalBounds.height;
+        
+        // 对每个选中元素应用变换
+        for (SlideElement<?> element : selected) {
+            Rectangle elementBounds = element.getBounds();
+            
+            // 计算元素相对于原始包围框的位置
+            double relativeX = (elementBounds.x - originalBounds.x) / (double) originalBounds.width;
+            double relativeY = (elementBounds.y - originalBounds.y) / (double) originalBounds.height;
+            double relativeWidth = elementBounds.width / (double) originalBounds.width;
+            double relativeHeight = elementBounds.height / (double) originalBounds.height;
+            
+            // 计算新位置和大小
+            double newX = newBounds.x + relativeX * newBounds.width;
+            double newY = newBounds.y + relativeY * newBounds.height;
+            double newWidth = relativeWidth * newBounds.width;
+            double newHeight = relativeHeight * newBounds.height;
+            
+            // 应用新的边界
+            element.setBounds(newX, newY, newWidth, newHeight);
         }
     }
     

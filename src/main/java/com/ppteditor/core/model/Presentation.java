@@ -58,6 +58,7 @@ public class Presentation implements Cloneable {
         this.modifiedTime = new Date();
         this.slides = new ArrayList<>();
         this.colorTheme = ColorTheme.createDefaultTheme();
+        this.slideMaster = SlideMaster.createDefaultMaster(); // 创建默认母版
         this.metadata = new HashMap<>();
         this.currentSlideIndex = 0;
         this.modified = false;
@@ -65,7 +66,9 @@ public class Presentation implements Cloneable {
         this.transitionDuration = 500;
         
         // 创建默认幻灯片
-        addSlide(new Slide("标题幻灯片"));
+        Slide firstSlide = new Slide("标题幻灯片");
+        slideMaster.applyToSlide(firstSlide); // 应用母版到默认幻灯片
+        addSlide(firstSlide);
     }
     
     public Presentation(String title) {
@@ -76,6 +79,10 @@ public class Presentation implements Cloneable {
     // 幻灯片管理方法
     public void addSlide(Slide slide) {
         if (slide != null) {
+            // 如果有母版且幻灯片没有应用过母版，则应用母版
+            if (slideMaster != null && slide.getElements().stream().noneMatch(element -> element.isLocked())) {
+                slideMaster.applyToSlide(slide);
+            }
             slides.add(slide);
             markAsModified();
         }
@@ -83,6 +90,10 @@ public class Presentation implements Cloneable {
     
     public void addSlide(int index, Slide slide) {
         if (slide != null && index >= 0 && index <= slides.size()) {
+            // 如果有母版且幻灯片没有应用过母版，则应用母版
+            if (slideMaster != null && slide.getElements().stream().noneMatch(element -> element.isLocked())) {
+                slideMaster.applyToSlide(slide);
+            }
             slides.add(index, slide);
             markAsModified();
         }
@@ -226,16 +237,19 @@ public class Presentation implements Cloneable {
     }
     
     // 统计信息
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public int getTotalSlides() {
         return slides.size();
     }
     
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public int getTotalElements() {
         return slides.stream()
                 .mapToInt(Slide::getElementCount)
                 .sum();
     }
     
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public Map<Class<?>, Long> getElementStatistics() {
         return slides.stream()
                 .flatMap(slide -> slide.getElements().stream())

@@ -32,6 +32,9 @@ public class Slide implements Cloneable {
     @Serializable
     private String notes; // 演讲者备注
     
+    @Serializable
+    private Dimension size; // 幻灯片尺寸
+    
     // 非序列化字段
     private transient BufferedImage backgroundImage;
     private transient Set<SlideElement<?>> selectedElements;
@@ -42,6 +45,7 @@ public class Slide implements Cloneable {
         this.elements = new ArrayList<>();
         this.backgroundColor = Color.WHITE;
         this.notes = "";
+        this.size = new Dimension(SlideMaster.STANDARD_WIDTH, SlideMaster.STANDARD_HEIGHT);
         this.selectedElements = new HashSet<>();
     }
     
@@ -367,11 +371,24 @@ public class Slide implements Cloneable {
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
     
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public Set<SlideElement<?>> getSelectedElements() { 
         return new HashSet<>(selectedElements); 
     }
     
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public boolean hasSelection() { return !selectedElements.isEmpty(); }
     
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public int getElementCount() { return elements.size(); }
+    
+    public Dimension getSize() { return new Dimension(size); }
+    
+    public void setSize(Dimension size) { 
+        this.size = new Dimension(size);
+    }
+    
+    public int getWidth() { return size.width; }
+    
+    public int getHeight() { return size.height; }
 } 
