@@ -11,60 +11,43 @@ import java.util.List;
  * 定义幻灯片的通用样式和布局
  */
 public class SlideMaster implements Cloneable {
-    
     // 标准PPT页面尺寸（16:9比例）
     public static final int STANDARD_WIDTH = 1280;
     public static final int STANDARD_HEIGHT = 720;
     public static final Dimension STANDARD_SIZE = new Dimension(STANDARD_WIDTH, STANDARD_HEIGHT);
-    
     // 页眉页脚区域定义
     public static final int HEADER_HEIGHT = 40;
     public static final int FOOTER_HEIGHT = 40;
     public static final int MARGIN = 20;
-    
     @Serializable(required = true)
     private String id;
-    
     @Serializable
     private String name;
-    
     @Serializable
     private Dimension slideSize; // 幻灯片尺寸
-    
     @Serializable
     private Color backgroundColor;
-    
     @Serializable
     private String backgroundImagePath;
-    
     @Serializable
     private List<SlideElement<?>> masterElements; // 母版元素（如页眉、页脚）
-    
     @Serializable
     private TextStyle defaultTitleStyle;
-    
     @Serializable
     private TextStyle defaultBodyStyle;
-    
     @Serializable
     private ShapeStyle defaultShapeStyle;
-    
     // 页眉页脚设置
     @Serializable
     private boolean showHeader;
-    
     @Serializable
     private String headerText;
-    
     @Serializable
     private boolean showFooter;
-    
     @Serializable
     private String footerText;
-    
     @Serializable
     private boolean showPageNumber;
-    
     @Serializable
     private boolean showDateTime;
     

@@ -374,10 +374,8 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
     public void mousePressed(MouseEvent e) {
         if (currentSlide == null) return;
         requestFocusInWindow();
-
         Point p = scalePoint(e.getPoint());
         SelectionHandle handle = getHandleAt(p);
-
         if (handle != null) {
             // Clicked on a resize/rotate handle
             activeHandle = handle.getType();
@@ -389,14 +387,11 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
             }
             return;
         }
-        
         draggedElement = findTopmostElementAt(p);
-        
         if (draggedElement != null) {
             isDragging = true;
             dragStartPoint = p;
             elementStartPos = new Point((int)draggedElement.getX(), (int)draggedElement.getY());
-
             if (!e.isControlDown() && !currentSlide.getSelectedElements().contains(draggedElement)) {
                 currentSlide.selectElement(draggedElement);
             } else if (e.isControlDown() && currentSlide.getSelectedElements().contains(draggedElement)) {
@@ -421,24 +416,18 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
     @Override
     public void mouseDragged(MouseEvent e) {
         if (currentSlide == null) return;
-        
         Point point = scalePoint(e.getPoint());
-        
         if (activeHandle != null) {
             // 处理缩放和旋转操作
             handleScaleRotateOperation(point);
             repaint();
-            
         } else if (draggedElement != null && dragStartPoint != null) {
             // 拖拽元素
             isDragging = true;
-            
             int deltaX = point.x - dragStartPoint.x;
             int deltaY = point.y - dragStartPoint.y;
-            
             double newX = elementStartPos.x + deltaX;
             double newY = elementStartPos.y + deltaY;
-            
             // 网格吸附和自动对齐
             if (snapToGrid) {
                 newX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
@@ -449,7 +438,6 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
                 newX = alignedPos.x;
                 newY = alignedPos.y;
             }
-            
             // 如果是多选，移动所有选中元素
             Set<SlideElement<?>> selected = currentSlide.getSelectedElements();
             if (selected.size() > 1) {
@@ -461,30 +449,23 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
                     }
                 }
             }
-            
             draggedElement.setPosition(newX, newY);
             repaint();
-            
         } else if (selectionStart != null) {
             // 框选
             int x = Math.min(selectionStart.x, point.x);
             int y = Math.min(selectionStart.y, point.y);
             int width = Math.abs(point.x - selectionStart.x);
             int height = Math.abs(point.y - selectionStart.y);
-            
             selectionRect = new Rectangle(x, y, width, height);
-            
             // 选择矩形内的元素
             List<SlideElement<?>> elementsInRect = currentSlide.findElementsInArea(selectionRect);
-            
             if (!e.isControlDown()) {
                 currentSlide.clearSelection();
             }
-            
             for (SlideElement<?> element : elementsInRect) {
                 currentSlide.addToSelection(element);
             }
-            
             repaint();
         }
     }
@@ -498,7 +479,6 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
                 SlideElement<?> element = selected.iterator().next();
                 Rectangle newBounds = element.getBounds();
                 double newRotation = element.getRotation();
-                
                 // 只有当实际发生变化时才创建命令
                 if (!originalBounds.equals(newBounds) || originalRotation != newRotation) {
                     ScaleElementCommand command = new ScaleElementCommand(
@@ -506,12 +486,10 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
                     commandManager.executeCommand(command);
                 }
             }
-            
             activeHandle = null;
             activeSelectionHandle = null;
             originalBounds = null;
             setCursor(Cursor.getDefaultCursor());
-            
         } else if (isDragging && draggedElement != null) {
             // 创建移动命令
             Point currentPos = new Point((int)draggedElement.getX(), (int)draggedElement.getY());
@@ -521,7 +499,6 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
                 commandManager.executeCommand(command);
             }
         }
-        
         // 清理状态
         draggedElement = null;
         dragStartPoint = null;
@@ -529,7 +506,6 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         isDragging = false;
         selectionStart = null;
         selectionRect = null;
-        
         notifyContentChanged();
         repaint();
     }
@@ -542,34 +518,27 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
     @Override
     public void mouseClicked(MouseEvent e) {
         if (currentSlide == null) return;
-        
         Point point = scalePoint(e.getPoint());
         List<SlideElement<?>> elements = currentSlide.findElementsAt(point);
-        
         if (!elements.isEmpty()) {
             SlideElement<?> clickedElement = elements.get(0);
-            
             // 单击处理超链接
             if (e.getClickCount() == 1) {
                 String hyperlink = null;
-                
                 // 对于文本元素，检查文本片段超链接
                 if (clickedElement instanceof TextElement) {
                     TextElement textElement = (TextElement) clickedElement;
                     hyperlink = textElement.getHyperlinkAtPoint(point);
                 }
-                
                 // 如果没有文本片段超链接，使用元素级超链接
                 if (hyperlink == null) {
                     hyperlink = clickedElement.getHyperlink();
                 }
-                
                 if (hyperlink != null && !hyperlink.trim().isEmpty()) {
                     openHyperlink(hyperlink);
                     return; // 不继续处理其他事件
                 }
             }
-            
             // 双击编辑文本 - 使用增强编辑器
             if (e.getClickCount() == 2 && clickedElement instanceof TextElement) {
                 TextElement textElement = (TextElement) clickedElement;
@@ -948,51 +917,41 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
     @Override
     public void keyPressed(KeyEvent e) {
         if (currentSlide == null) return;
-        
         int keyCode = e.getKeyCode();
         boolean ctrlPressed = e.isControlDown();
-        
         if (keyCode == KeyEvent.VK_DELETE || keyCode == KeyEvent.VK_BACK_SPACE) {
             deleteSelectedElements();
-            
         } else if (ctrlPressed && keyCode == KeyEvent.VK_C) {
             // 复制
             copySelectedElements();
-            
         } else if (ctrlPressed && keyCode == KeyEvent.VK_V) {
             // 粘贴
             pasteElements();
-            
         } else if (ctrlPressed && keyCode == KeyEvent.VK_Z) {
             commandManager.undo();
             notifySelectionChanged();
             notifyContentChanged();
             repaint();
-            
         } else if (ctrlPressed && keyCode == KeyEvent.VK_Y) {
             commandManager.redo();
             notifySelectionChanged();
             notifyContentChanged();
             repaint();
-            
         } else if (currentSlide.hasSelection()) {
             // 方向键微调
             int deltaX = 0, deltaY = 0;
-            
             switch (keyCode) {
                 case KeyEvent.VK_LEFT: deltaX = -1; break;
                 case KeyEvent.VK_RIGHT: deltaX = 1; break;
                 case KeyEvent.VK_UP: deltaY = -1; break;
                 case KeyEvent.VK_DOWN: deltaY = 1; break;
             }
-            
             if (deltaX != 0 || deltaY != 0) {
                 // 如果按住Shift，移动距离更大
                 if (e.isShiftDown()) {
                     deltaX *= GRID_SIZE;
                     deltaY *= GRID_SIZE;
                 }
-                
                 for (SlideElement<?> element : currentSlide.getSelectedElements()) {
                     element.move(deltaX, deltaY);
                 }
@@ -1215,10 +1174,8 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
     // 自动对齐和吸附功能
     private Point findAlignmentPosition(double newX, double newY, SlideElement<?> draggedElement) {
         final double SNAP_DISTANCE = 5; // 吸附距离阈值
-        
         double alignedX = newX;
         double alignedY = newY;
-        
         // 获取当前元素的边界
         double elementLeft = newX;
         double elementRight = newX + draggedElement.getWidth();
@@ -1226,18 +1183,15 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         double elementBottom = newY + draggedElement.getHeight();
         double elementCenterX = newX + draggedElement.getWidth() / 2;
         double elementCenterY = newY + draggedElement.getHeight() / 2;
-        
         // 检查与其他元素的对齐
         for (SlideElement<?> element : currentSlide.getElements()) {
             if (element == draggedElement || element.isSelected()) continue;
-            
             double otherLeft = element.getX();
             double otherRight = element.getX() + element.getWidth();
             double otherTop = element.getY();
             double otherBottom = element.getY() + element.getHeight();
             double otherCenterX = element.getX() + element.getWidth() / 2;
             double otherCenterY = element.getY() + element.getHeight() / 2;
-            
             // 检查水平对齐
             if (Math.abs(elementLeft - otherLeft) <= SNAP_DISTANCE) {
                 alignedX = otherLeft; // 左边对齐
@@ -1250,7 +1204,6 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
             } else if (Math.abs(elementRight - otherLeft) <= SNAP_DISTANCE) {
                 alignedX = otherLeft - draggedElement.getWidth(); // 右边贴左边
             }
-            
             // 检查垂直对齐
             if (Math.abs(elementTop - otherTop) <= SNAP_DISTANCE) {
                 alignedY = otherTop; // 顶部对齐
@@ -1264,7 +1217,6 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
                 alignedY = otherTop - draggedElement.getHeight(); // 底部贴顶部
             }
         }
-        
         // 检查与画布边界的对齐
         if (Math.abs(elementLeft) <= SNAP_DISTANCE) {
             alignedX = 0; // 左边界对齐
@@ -1273,7 +1225,6 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         } else if (Math.abs(elementCenterX - CANVAS_WIDTH / 2) <= SNAP_DISTANCE) {
             alignedX = (CANVAS_WIDTH - draggedElement.getWidth()) / 2; // 画布中心对齐
         }
-        
         if (Math.abs(elementTop) <= SNAP_DISTANCE) {
             alignedY = 0; // 顶部边界对齐
         } else if (Math.abs(elementBottom - CANVAS_HEIGHT) <= SNAP_DISTANCE) {
@@ -1281,7 +1232,6 @@ public class SlideCanvas extends JPanel implements MouseListener, MouseMotionLis
         } else if (Math.abs(elementCenterY - CANVAS_HEIGHT / 2) <= SNAP_DISTANCE) {
             alignedY = (CANVAS_HEIGHT - draggedElement.getHeight()) / 2; // 画布中心对齐
         }
-        
         return new Point((int)alignedX, (int)alignedY);
     }
     

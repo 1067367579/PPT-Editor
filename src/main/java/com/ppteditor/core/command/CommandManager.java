@@ -40,16 +40,12 @@ public class CommandManager {
      */
     public void executeCommand(Command command) {
         if (command == null) return;
-        
         try {
             command.execute();
-            
             // 清空重做栈
             redoStack.clear();
-            
             // 添加到撤销栈
             undoStack.push(command);
-            
             // 限制历史记录大小
             if (undoStack.size() > maxHistorySize) {
                 // 移除最旧的命令
@@ -62,23 +58,16 @@ public class CommandManager {
                     undoStack.push(temp.pop());
                 }
             }
-            
             notifyStatusChange("执行: " + command.getDescription());
-            
         } catch (Exception e) {
             notifyStatusChange("执行失败: " + command.getDescription());
             throw new RuntimeException("命令执行失败", e);
         }
     }
     
-    /**
-     * 撤销上一个命令
-     */
+    //撤销上一个命令
     public boolean undo() {
-        if (!canUndo()) {
-            return false;
-        }
-        
+        if (!canUndo()) return false;
         Command command = undoStack.pop();
         try {
             if (command.canUndo()) {
@@ -93,18 +82,12 @@ public class CommandManager {
             notifyStatusChange("撤销失败: " + command.getDescription());
             throw new RuntimeException("撤销失败", e);
         }
-        
         return false;
     }
     
-    /**
-     * 重做下一个命令
-     */
+    //重做下一个命令
     public boolean redo() {
-        if (!canRedo()) {
-            return false;
-        }
-        
+        if (!canRedo()) return false;
         Command command = redoStack.pop();
         try {
             if (command.canRedo()) {
@@ -119,7 +102,6 @@ public class CommandManager {
             notifyStatusChange("重做失败: " + command.getDescription());
             throw new RuntimeException("重做失败", e);
         }
-        
         return false;
     }
     

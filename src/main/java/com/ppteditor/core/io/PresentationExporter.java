@@ -28,36 +28,28 @@ public class PresentationExporter {
      */
     public void exportSlideAsImage(Slide slide, String filePath, String format) throws IOException {
         BufferedImage image = renderSlideToImage(slide);
-        
         // 确保文件扩展名正确
         if (!filePath.toLowerCase().endsWith("." + format.toLowerCase())) {
             filePath += "." + format.toLowerCase();
         }
-        
         File outputFile = new File(filePath);
-        
         // 确保父目录存在
         File parentDir = outputFile.getParentFile();
         if (parentDir != null && !parentDir.exists()) {
             parentDir.mkdirs();
         }
-        
         // 写入图片文件
         boolean success = ImageIO.write(image, format.toUpperCase(), outputFile);
-        
         if (!success) {
             throw new IOException("不支持的图片格式: " + format);
         }
-        
         // 验证文件是否被创建
         if (!outputFile.exists()) {
             throw new IOException("图片文件创建失败: " + filePath);
         }
-        
         if (outputFile.length() == 0) {
             throw new IOException("图片文件为空: " + filePath);
         }
-        
         System.out.println("幻灯片已导出为图片: " + filePath + " (大小: " + outputFile.length() + " 字节)");
     }
     
@@ -69,16 +61,13 @@ public class PresentationExporter {
         if (!dir.exists()) {
             dir.mkdirs();
         }
-        
         List<Slide> slides = presentation.getSlides();
         for (int i = 0; i < slides.size(); i++) {
             Slide slide = slides.get(i);
             String fileName = String.format("幻灯片_%03d.%s", i + 1, format.toLowerCase());
             String filePath = new File(dir, fileName).getAbsolutePath();
-            
             exportSlideAsImage(slide, filePath, format);
         }
-        
         System.out.println("所有幻灯片已导出到目录: " + outputDir);
     }
     
@@ -90,64 +79,47 @@ public class PresentationExporter {
         if (!filePath.toLowerCase().endsWith(".pdf")) {
             filePath += ".pdf";
         }
-        
         File outputFile = new File(filePath);
-        
         // 确保父目录存在
         File parentDir = outputFile.getParentFile();
         if (parentDir != null && !parentDir.exists()) {
             parentDir.mkdirs();
         }
-        
         try (PdfWriter writer = new PdfWriter(filePath);
              PdfDocument pdfDoc = new PdfDocument(writer);
              Document document = new Document(pdfDoc)) {
-            
             List<Slide> slides = presentation.getSlides();
-            
             if (slides.isEmpty()) {
                 throw new IOException("没有幻灯片可以导出");
             }
-            
             for (int i = 0; i < slides.size(); i++) {
                 if (i > 0) {
                     document.add(new com.itextpdf.layout.element.AreaBreak());
                 }
-                
                 // 渲染幻灯片为图片
                 BufferedImage slideImage = renderSlideToImage(slides.get(i));
-                
                 // 转换为字节数组
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 boolean success = ImageIO.write(slideImage, "PNG", baos);
-                
                 if (!success) {
                     throw new IOException("幻灯片渲染失败: 第 " + (i + 1) + " 页");
                 }
-                
                 byte[] imageData = baos.toByteArray();
-                
                 if (imageData.length == 0) {
                     throw new IOException("幻灯片图片数据为空: 第 " + (i + 1) + " 页");
                 }
-                
                 // 添加到PDF
                 Image pdfImage = new Image(ImageDataFactory.create(imageData));
-                
                 // 调整图片大小以适应页面
                 float pageWidth = pdfDoc.getDefaultPageSize().getWidth() - 72; // 减去边距
                 float pageHeight = pdfDoc.getDefaultPageSize().getHeight() - 72;
-                
                 float imageWidth = slideImage.getWidth();
                 float imageHeight = slideImage.getHeight();
-                
                 float scaleX = pageWidth / imageWidth;
                 float scaleY = pageHeight / imageHeight;
                 float scale = Math.min(scaleX, scaleY);
-                
                 pdfImage.setWidth(imageWidth * scale);
                 pdfImage.setHeight(imageHeight * scale);
-                
                 document.add(pdfImage);
             }
         } catch (Exception e) {

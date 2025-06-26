@@ -68,7 +68,7 @@ public class TextSegment implements java.io.Serializable {
     }
     
     public boolean isHyperlink() { return isHyperlink; }
-    public void setHyperlink(boolean isHyperlink) { this.isHyperlink = isHyperlink; }
+    public void setIsHyperlink(boolean isHyperlink) { this.isHyperlink = isHyperlink; }
     
     public Color getTextColor() { return textColor; }
     public void setTextColor(Color textColor) { this.textColor = textColor; }

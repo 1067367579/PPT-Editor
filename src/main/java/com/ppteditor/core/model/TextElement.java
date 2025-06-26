@@ -379,7 +379,6 @@ public class TextElement extends SlideElement<TextStyle> implements java.io.Seri
         Graphics2D tempG2d = img.createGraphics();
         tempG2d.setFont(style.getFont());
         FontMetrics fm = tempG2d.getFontMetrics();
-        
         int totalWidth = 0;
         for (SegmentPart part : line.parts) {
             Font segmentFont = createSegmentFont(part.segment);
@@ -387,9 +386,7 @@ public class TextElement extends SlideElement<TextStyle> implements java.io.Seri
             FontMetrics segmentFm = tempG2d.getFontMetrics();
             totalWidth += segmentFm.stringWidth(part.text);
         }
-        
         tempG2d.dispose();
-        
         // 根据对齐方式计算X位置
         switch (style.getAlignment()) {
             case TextStyle.ALIGN_CENTER: // 居中
@@ -400,10 +397,7 @@ public class TextElement extends SlideElement<TextStyle> implements java.io.Seri
                 return (int)x + 5;
         }
     }
-    
-    /**
-     * 为文本片段创建字体
-     */
+    //为文本片段创建字体
     private Font createSegmentFont(TextSegment segment) {
         int fontStyle = Font.PLAIN;
         if (style.isBold() || segment.isBold()) fontStyle |= Font.BOLD;
@@ -411,45 +405,29 @@ public class TextElement extends SlideElement<TextStyle> implements java.io.Seri
         
         return new Font(style.getFontFamily(), fontStyle, style.getFontSize());
     }
-    
-    /**
-     * 设置文本（保留现有的文本段设置）
-     */
+    //设置文本（保留现有的文本段设置）
     public void setText(String text) {
         this.text = text;
-        // 只有在没有使用文本段模式时才初始化片段
         if (!useSegments && (textSegments == null || textSegments.isEmpty())) {
             initializeSegments();
         }
     }
-    
-    /**
-     * 为选中的文字设置超链接
-     */
     public void setHyperlinkForSelection(int startIndex, int endIndex, String hyperlink) {
         if (startIndex < 0 || endIndex > text.length() || startIndex >= endIndex) {
             return;
         }
-        
         useSegments = true;
-        
-        // 重新构建文本片段
         List<TextSegment> newSegments = new ArrayList<>();
-        
-        // 添加超链接前的文本
         if (startIndex > 0) {
             newSegments.add(new TextSegment(text.substring(0, startIndex)));
         }
-        
         // 添加超链接文本
         String linkText = text.substring(startIndex, endIndex);
         newSegments.add(new TextSegment(linkText, hyperlink));
-        
         // 添加超链接后的文本
         if (endIndex < text.length()) {
             newSegments.add(new TextSegment(text.substring(endIndex)));
         }
-        
         this.textSegments = newSegments;
     }
     
@@ -460,56 +438,45 @@ public class TextElement extends SlideElement<TextStyle> implements java.io.Seri
         if (!useSegments || textSegments.isEmpty()) {
             return hyperlink; // 返回整个元素的超链接
         }
-        
         // 创建临时Graphics2D用于计算文本位置
         java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = img.createGraphics();
         g2d.setFont(style.getFont());
         FontMetrics fm = g2d.getFontMetrics();
-        
         // 计算基础Y位置
         int baseY = calculateTextY(fm);
         int lineHeight = (int)(fm.getHeight() * style.getLineSpacing());
-        
         // 遍历文本片段，找到点击位置的片段
         int currentX = (int)x + 5;
         int currentY = baseY;
-        
         for (TextSegment segment : textSegments) {
             String segmentText = segment.getText();
             if (segmentText == null || segmentText.isEmpty()) continue;
-            
             // 设置片段字体
             Font segmentFont = createSegmentFont(segment);
             g2d.setFont(segmentFont);
             fm = g2d.getFontMetrics();
-            
             // 处理换行
             String[] lines = segmentText.split("\n");
             for (int i = 0; i < lines.length; i++) {
                 String line = lines[i];
-                
                 if (i > 0) {
                     // 换行
                     currentY += lineHeight;
                     currentX = (int)x + 5;
                 }
-                
                 // 检查点击位置是否在当前行的片段范围内
                 int lineWidth = fm.stringWidth(line);
                 Rectangle segmentBounds = new Rectangle(currentX, currentY - fm.getAscent(), 
                                                        lineWidth, fm.getHeight());
-                
                 if (segmentBounds.contains(point) && segment.isHyperlink()) {
                     g2d.dispose();
                     return segment.getHyperlink();
                 }
-                
                 // 更新X位置
                 currentX += lineWidth;
             }
         }
-        
         g2d.dispose();
         return null;
     }

@@ -86,87 +86,62 @@ public class MainWindow extends JFrame {
     
     private void createMenuBar() {
         menuBar = new JMenuBar();
-        
         // 文件菜单
         JMenu fileMenu = new JMenu("文件(F)");
         fileMenu.setMnemonic(KeyEvent.VK_F);
-        
         addMenuItem(fileMenu, "新建", KeyEvent.VK_N, 
                    KeyStroke.getKeyStroke(KeyEvent.VK_N, ActionEvent.CTRL_MASK),
                    e -> newPresentation());
-        
         addMenuItem(fileMenu, "打开", KeyEvent.VK_O,
                    KeyStroke.getKeyStroke(KeyEvent.VK_O, ActionEvent.CTRL_MASK),
                    e -> openPresentation());
-        
         fileMenu.addSeparator();
-        
         addMenuItem(fileMenu, "保存", KeyEvent.VK_S,
                    KeyStroke.getKeyStroke(KeyEvent.VK_S, ActionEvent.CTRL_MASK),
                    e -> savePresentation());
-        
         addMenuItem(fileMenu, "另存为", KeyEvent.VK_A,
                    KeyStroke.getKeyStroke(KeyEvent.VK_S, ActionEvent.CTRL_MASK | ActionEvent.SHIFT_MASK),
                    e -> saveAsPresentation());
-        
         fileMenu.addSeparator();
-        
         addMenuItem(fileMenu, "导出为图片", 0, null, e -> exportAsImage());
         addMenuItem(fileMenu, "导出为PDF", 0, null, e -> exportAsPDF());
-        
         fileMenu.addSeparator();
-        
         addMenuItem(fileMenu, "退出", KeyEvent.VK_X,
                    KeyStroke.getKeyStroke(KeyEvent.VK_F4, ActionEvent.ALT_MASK),
                    e -> exitApplication());
-        
         menuBar.add(fileMenu);
-        
         // 编辑菜单
         JMenu editMenu = new JMenu("编辑(E)");
         editMenu.setMnemonic(KeyEvent.VK_E);
-        
         addMenuItem(editMenu, "撤销", KeyEvent.VK_U,
                    KeyStroke.getKeyStroke(KeyEvent.VK_Z, ActionEvent.CTRL_MASK),
                    e -> undo());
-        
         addMenuItem(editMenu, "重做", KeyEvent.VK_R,
                    KeyStroke.getKeyStroke(KeyEvent.VK_Y, ActionEvent.CTRL_MASK),
                    e -> redo());
-        
         editMenu.addSeparator();
-        
         addMenuItem(editMenu, "复制", KeyEvent.VK_C,
                    KeyStroke.getKeyStroke(KeyEvent.VK_C, ActionEvent.CTRL_MASK),
                    e -> copy());
-        
         addMenuItem(editMenu, "粘贴", KeyEvent.VK_V,
                    KeyStroke.getKeyStroke(KeyEvent.VK_V, ActionEvent.CTRL_MASK),
                    e -> paste());
-        
         addMenuItem(editMenu, "删除", KeyEvent.VK_D,
                    KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0),
                    e -> delete());
-        
         menuBar.add(editMenu);
-        
         // 设计菜单
         JMenu designMenu = new JMenu("设计(D)");
         designMenu.setMnemonic(KeyEvent.VK_D);
-        
         addMenuItem(designMenu, "设置过渡动画...", 0, null, e -> openTransitionSettings());
-        
         menuBar.add(designMenu);
-        
         // 插入菜单
         JMenu insertMenu = new JMenu("插入(I)");
         insertMenu.setMnemonic(KeyEvent.VK_I);
-        
         addMenuItem(insertMenu, "文本框", 0, null, e -> insertTextBox());
         addMenuItem(insertMenu, "矩形", 0, null, e -> insertRectangle());
         addMenuItem(insertMenu, "椭圆", 0, null, e -> insertEllipse());
         addMenuItem(insertMenu, "图片", 0, null, e -> insertImage());
-        
         // 图标子菜单
         JMenu iconMenu = new JMenu("图标");
         addMenuItem(iconMenu, "星形", 0, null, e -> insertIcon(IconElement.IconType.STAR));
@@ -176,43 +151,30 @@ public class MainWindow extends JFrame {
         addMenuItem(iconMenu, "菱形", 0, null, e -> insertIcon(IconElement.IconType.DIAMOND));
         addMenuItem(iconMenu, "对勾", 0, null, e -> insertIcon(IconElement.IconType.CHECK));
         insertMenu.add(iconMenu);
-        
         menuBar.add(insertMenu);
-        
         // 视图菜单
         JMenu viewMenu = new JMenu("视图(V)");
         viewMenu.setMnemonic(KeyEvent.VK_V);
-        
         addMenuItem(viewMenu, "放大", 0,
                    KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, ActionEvent.CTRL_MASK),
                    e -> zoomIn());
-        
         addMenuItem(viewMenu, "缩小", 0,
                    KeyStroke.getKeyStroke(KeyEvent.VK_MINUS, ActionEvent.CTRL_MASK),
                    e -> zoomOut());
-        
         addMenuItem(viewMenu, "适合窗口", 0,
                    KeyStroke.getKeyStroke(KeyEvent.VK_0, ActionEvent.CTRL_MASK),
                    e -> fitToWindow());
-        
         viewMenu.addSeparator();
-        
         addMenuItem(viewMenu, "演示模式", KeyEvent.VK_F5,
                    KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0),
                    e -> startPresentationMode());
-        
         viewMenu.addSeparator();
-        
         addMenuItem(viewMenu, "母版设置", 0, null, e -> openMasterSettings());
-        
         menuBar.add(viewMenu);
-        
         // 帮助菜单
         JMenu helpMenu = new JMenu("帮助(H)");
         helpMenu.setMnemonic(KeyEvent.VK_H);
-        
         addMenuItem(helpMenu, "关于", 0, null, e -> showAbout());
-        
         menuBar.add(helpMenu);
     }
     
@@ -779,20 +741,16 @@ public class MainWindow extends JFrame {
                 Component[] components = contentPanel.getComponents();
                 if (components.length > 0 && components[0] instanceof JSplitPane) {
                     JSplitPane mainSplitPane = (JSplitPane) components[0];
-                    
                     // 左侧面板固定宽度为180px
                     mainSplitPane.setDividerLocation(180);
-                    
                     // 获取左侧垂直分割面板
                     Component leftComponent = mainSplitPane.getLeftComponent();
                     if (leftComponent instanceof JSplitPane) {
                         JSplitPane leftSidePanel = (JSplitPane) leftComponent;
-                        
                         // 动态调整幻灯片面板和模板面板的比例
                         int windowHeight = getHeight();
                         int availableHeight = windowHeight - 100; // 减去菜单栏、工具栏、状态栏的高度
                         int slidePanelHeight = (int)(availableHeight * 0.6); // 60%给幻灯片面板
-                        
                         leftSidePanel.setDividerLocation(slidePanelHeight);
                     }
                 }

@@ -110,7 +110,6 @@ public class SlidePanel extends JPanel {
                     }
                 }
             }
-            
             @Override
             public void mouseReleased(MouseEvent e) {
                 if (isDragging && draggedIndex >= 0) {
@@ -119,7 +118,6 @@ public class SlidePanel extends JPanel {
                         moveSlide(draggedIndex, dropIndex);
                     }
                 }
-                
                 // 恢复正常状态
                 draggedIndex = -1;
                 isDragging = false;
@@ -128,7 +126,6 @@ public class SlidePanel extends JPanel {
                 slideList.repaint();
             }
         });
-        
         slideList.addMouseMotionListener(new MouseMotionAdapter() {
             @Override
             public void mouseDragged(MouseEvent e) {
@@ -157,19 +154,14 @@ public class SlidePanel extends JPanel {
     
     private void showContextMenu(Point point) {
         JPopupMenu menu = new JPopupMenu();
-        
         JMenuItem addItem = new JMenuItem("新建幻灯片");
         addItem.addActionListener(e -> addNewSlide());
-        
         JMenuItem duplicateItem = new JMenuItem("复制幻灯片");
         duplicateItem.addActionListener(e -> duplicateSelectedSlide());
-        
         JMenuItem deleteItem = new JMenuItem("删除幻灯片");
         deleteItem.addActionListener(e -> deleteSelectedSlide());
-        
         JMenuItem renameItem = new JMenuItem("重命名");
         renameItem.addActionListener(e -> renameSelectedSlide());
-        
         menu.add(addItem);
         menu.add(duplicateItem);
         menu.addSeparator();
@@ -233,26 +225,20 @@ public class SlidePanel extends JPanel {
     
     private void deleteSelectedSlide() {
         if (presentation == null || slideList.getSelectedIndex() < 0) return;
-        
         if (presentation.getTotalSlides() <= 1) {
             JOptionPane.showMessageDialog(this, "至少需要保留一张幻灯片", "提示", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        
         int result = JOptionPane.showConfirmDialog(this, 
             "确定要删除选中的幻灯片吗？", 
             "确认删除", 
             JOptionPane.YES_NO_OPTION);
-        
         if (result == JOptionPane.YES_OPTION) {
             int selectedIndex = slideList.getSelectedIndex();
             Slide selectedSlide = slideList.getSelectedValue();
-            
             RemoveSlideCommand command = new RemoveSlideCommand(presentation, selectedSlide, selectedIndex);
             commandManager.executeCommand(command);
-            
             updateSlideList();
-            
             // 选择合适的幻灯片
             int newIndex = Math.min(selectedIndex, presentation.getTotalSlides() - 1);
             slideList.setSelectedIndex(newIndex);
@@ -262,14 +248,11 @@ public class SlidePanel extends JPanel {
     
     private void duplicateSelectedSlide() {
         if (presentation == null || slideList.getSelectedIndex() < 0) return;
-        
         Slide selectedSlide = slideList.getSelectedValue();
         Slide duplicatedSlide = selectedSlide.clone();
-        
         int insertIndex = slideList.getSelectedIndex() + 1;
         AddSlideCommand command = new AddSlideCommand(presentation, duplicatedSlide, insertIndex);
         commandManager.executeCommand(command);
-        
         updateSlideList();
         slideList.setSelectedIndex(insertIndex);
         notifySlideSelected();
@@ -277,14 +260,11 @@ public class SlidePanel extends JPanel {
     
     private void renameSelectedSlide() {
         if (presentation == null || slideList.getSelectedIndex() < 0) return;
-        
         Slide selectedSlide = slideList.getSelectedValue();
         String newName = JOptionPane.showInputDialog(this, "重命名幻灯片:", selectedSlide.getName());
-        
         if (newName != null && !newName.trim().isEmpty() && !newName.equals(selectedSlide.getName())) {
             RenameSlideCommand command = new RenameSlideCommand(selectedSlide, selectedSlide.getName(), newName.trim());
             commandManager.executeCommand(command);
-            
             slideList.repaint();
         }
     }
@@ -303,16 +283,13 @@ public class SlidePanel extends JPanel {
         if (presentation == null || fromIndex < 0 || toIndex < 0) return;
         if (fromIndex >= presentation.getTotalSlides() || toIndex >= presentation.getTotalSlides()) return;
         if (fromIndex == toIndex) return;
-        
         // 使用Presentation的moveSlide方法，这样会正确处理内部状态
         presentation.moveSlide(fromIndex, toIndex);
-        
         // 更新显示
         updateSlideList();
         slideList.setSelectedIndex(toIndex);
         presentation.goToSlide(toIndex);
         notifySlideSelected();
-        
         System.out.println("移动幻灯片: " + fromIndex + " -> " + toIndex);
     }
     

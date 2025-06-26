@@ -84,39 +84,32 @@ public class PresentationFileManager {
         if (presentation == null || file == null) {
             throw new IllegalArgumentException("Presentation and file cannot be null");
         }
-        
         // 确保文件扩展名正确
         String filePath = file.getAbsolutePath();
         if (!filePath.endsWith(JSON_EXTENSION)) {
             filePath += JSON_EXTENSION;
             file = new File(filePath);
         }
-        
         // 确保父目录存在
         File parentDir = file.getParentFile();
         if (parentDir != null && !parentDir.exists()) {
             parentDir.mkdirs();
         }
-        
         try {
             // 创建包装对象，包含版本信息
             PresentationWrapper wrapper = new PresentationWrapper();
             wrapper.version = "1.0";
             wrapper.presentation = presentation;
             wrapper.savedTime = System.currentTimeMillis();
-            
             // 首先写入临时文件
             File tempFile = new File(file.getAbsolutePath() + ".tmp");
             System.out.println("尝试写入临时文件: " + tempFile.getAbsolutePath());
-            
             try (FileOutputStream fos = new FileOutputStream(tempFile);
                  BufferedOutputStream bos = new BufferedOutputStream(fos)) {
-                
                 // 写入文件
                 objectMapper.writeValue(bos, wrapper);
                 bos.flush();
                 fos.flush();
-                
                 // 尝试强制同步到磁盘（可选操作，失败不影响保存）
                 try {
                     fos.getFD().sync();
@@ -124,22 +117,18 @@ public class PresentationFileManager {
                     System.out.println("警告：无法强制同步到磁盘，但文件已写入: " + syncEx.getMessage());
                 }
             }
-            
             // 验证临时文件
             if (!tempFile.exists()) {
                 throw new IOException("临时文件创建失败");
             }
-            
             if (tempFile.length() == 0) {
                 tempFile.delete();
                 throw new IOException("临时文件为空");
             }
-            
             // 如果目标文件已存在，先删除
             if (file.exists()) {
                 file.delete();
             }
-            
             // 重命名临时文件为目标文件
             if (!tempFile.renameTo(file)) {
                 // 如果重命名失败，使用复制方式
@@ -151,19 +140,15 @@ public class PresentationFileManager {
                     throw new IOException("文件保存失败：无法移动临时文件到目标位置: " + copyEx.getMessage());
                 }
             }
-            
             // 最终验证
             if (!file.exists()) {
                 throw new IOException("文件保存失败：目标文件不存在");
             }
-            
             if (file.length() == 0) {
                 file.delete();
                 throw new IOException("文件保存失败：目标文件为空");
             }
-            
             System.out.println("演示文稿已保存为: " + file.getAbsolutePath() + " (大小: " + file.length() + " 字节)");
-            
         } catch (Exception e) {
             // 清理任何可能存在的临时文件或空文件
             File tempFile = new File(file.getAbsolutePath() + ".tmp");
@@ -173,7 +158,6 @@ public class PresentationFileManager {
             if (file.exists() && file.length() == 0) {
                 file.delete();
             }
-            
             System.err.println("保存文件时发生错误: " + e.getMessage());
             e.printStackTrace();
             throw new IOException("保存演示文稿失败: " + e.getMessage(), e);
@@ -187,15 +171,12 @@ public class PresentationFileManager {
         if (file == null || !file.exists()) {
             throw new IllegalArgumentException("File does not exist");
         }
-        
         System.out.println("开始加载文件: " + file.getAbsolutePath() + " (大小: " + file.length() + " 字节)");
-        
         try {
             // 检查文件是否为空
             if (file.length() == 0) {
                 throw new IOException("文件为空");
             }
-            
             // 检查文件头部
             try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
                 byte[] header = new byte[10];
@@ -204,7 +185,6 @@ public class PresentationFileManager {
                     throw new IOException("文件格式无效：不是有效的JSON文件");
                 }
             }
-            
             System.out.println("开始解析JSON...");
             PresentationWrapper wrapper = objectMapper.readValue(file, PresentationWrapper.class);
             
@@ -215,12 +195,10 @@ public class PresentationFileManager {
             if (wrapper.presentation == null) {
                 throw new IOException("演示文稿数据为空");
             }
-            
             System.out.println("演示文稿已加载，版本: " + wrapper.version + 
                               "，标题: " + wrapper.presentation.getTitle() + 
                               "，幻灯片数量: " + wrapper.presentation.getTotalSlides());
             return wrapper.presentation;
-            
         } catch (com.fasterxml.jackson.core.JsonParseException e) {
             System.err.println("JSON解析错误: " + e.getMessage());
             throw new IOException("文件格式错误：JSON解析失败 - " + e.getMessage(), e);

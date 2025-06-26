@@ -11,13 +11,10 @@ import java.awt.geom.Rectangle2D;
  * 支持在矩形内显示文本
  */
 public class RectangleElement extends SlideElement<ShapeStyle> implements java.io.Serializable {
-    
     @Serializable
     private String text; // 矩形内的文本
-    
     @Serializable
     private TextStyle textStyle; // 文本样式
-    
     public RectangleElement() {
         super(ElementType.RECTANGLE);
         this.style = createDefaultStyle();
@@ -26,7 +23,6 @@ public class RectangleElement extends SlideElement<ShapeStyle> implements java.i
         this.text = "";
         this.textStyle = createDefaultTextStyle();
     }
-    
     public RectangleElement(double x, double y, double width, double height) {
         this();
         this.x = x;
@@ -34,25 +30,20 @@ public class RectangleElement extends SlideElement<ShapeStyle> implements java.i
         this.width = width;
         this.height = height;
     }
-    
     @Override
     public void render(Graphics2D g2d) {
         if (style == null) {
             style = createDefaultStyle();
         }
-        
         // 启用抗锯齿
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        
         Rectangle2D rect = new Rectangle2D.Double(x, y, width, height);
-        
         // 绘制填充
         Color fillColor = style.getEffectiveFillColor();
         if (fillColor != null) {
             g2d.setColor(fillColor);
             g2d.fill(rect);
         }
-        
         // 绘制边框
         Color borderColor = style.getEffectiveBorderColor();
         if (borderColor != null) {
@@ -60,7 +51,6 @@ public class RectangleElement extends SlideElement<ShapeStyle> implements java.i
             g2d.setStroke(style.getBorderStroke());
             g2d.draw(rect);
         }
-        
         // 绘制文本
         if (text != null && !text.trim().isEmpty() && textStyle != null) {
             drawText(g2d);

@@ -9,7 +9,6 @@ import java.util.List;
  * 定义幻灯片的颜色主题
  */
 public class ColorTheme {
-    
     private String name;
     private Color primaryColor;
     private Color secondaryColor;
@@ -17,17 +16,13 @@ public class ColorTheme {
     private Color backgroundColor;
     private Color textColor;
     private Map<String, Color> customColors;
-    
-    // 无参构造函数，供Jackson反序列化使用
     public ColorTheme() {
         this.customColors = new HashMap<>();
     }
-    
     public ColorTheme(String name) {
         this.name = name;
         this.customColors = new HashMap<>();
     }
-    
     // 静态工厂方法 - 预定义主题
     public static ColorTheme createDefaultTheme() {
         ColorTheme theme = new ColorTheme("默认主题");
@@ -38,7 +33,6 @@ public class ColorTheme {
         theme.textColor = Color.BLACK;
         return theme;
     }
-    
     public static ColorTheme createBlueTheme() {
         ColorTheme theme = new ColorTheme("蓝色主题");
         theme.primaryColor = new Color(0, 86, 179);
@@ -48,7 +42,6 @@ public class ColorTheme {
         theme.textColor = new Color(25, 25, 112);
         return theme;
     }
-    
     public static ColorTheme createGreenTheme() {
         ColorTheme theme = new ColorTheme("绿色主题");
         theme.primaryColor = new Color(34, 139, 34);
@@ -58,7 +51,6 @@ public class ColorTheme {
         theme.textColor = new Color(0, 100, 0);
         return theme;
     }
-    
     public static ColorTheme createRedTheme() {
         ColorTheme theme = new ColorTheme("红色主题");
         theme.primaryColor = new Color(220, 20, 60);
@@ -68,7 +60,6 @@ public class ColorTheme {
         theme.textColor = new Color(139, 0, 0);
         return theme;
     }
-    
     public static ColorTheme createPurpleTheme() {
         ColorTheme theme = new ColorTheme("紫色主题");
         theme.primaryColor = new Color(138, 43, 226);
@@ -78,7 +69,6 @@ public class ColorTheme {
         theme.textColor = new Color(75, 0, 130);
         return theme;
     }
-    
     public static ColorTheme createOrangeTheme() {
         ColorTheme theme = new ColorTheme("橙色主题");
         theme.primaryColor = new Color(255, 140, 0);
@@ -88,8 +78,7 @@ public class ColorTheme {
         theme.textColor = new Color(139, 69, 19);
         return theme;
     }
-    
-    public static ColorTheme createDarkTheme() {
+    public ColorTheme createDarkTheme() {
         ColorTheme theme = new ColorTheme("深色主题");
         theme.primaryColor = new Color(100, 149, 237);
         theme.secondaryColor = new Color(119, 136, 153);
@@ -98,7 +87,6 @@ public class ColorTheme {
         theme.textColor = Color.WHITE;
         return theme;
     }
-    
     public static ColorTheme createBusinessTheme() {
         ColorTheme theme = new ColorTheme("商务主题");
         theme.primaryColor = new Color(25, 25, 112);
@@ -108,7 +96,6 @@ public class ColorTheme {
         theme.textColor = new Color(25, 25, 112);
         return theme;
     }
-    
     public static ColorTheme createNatureTheme() {
         ColorTheme theme = new ColorTheme("自然主题");
         theme.primaryColor = new Color(107, 142, 35);
@@ -118,8 +105,6 @@ public class ColorTheme {
         theme.textColor = new Color(85, 107, 47);
         return theme;
     }
-    
-    // 新增专业配色主题
     public static ColorTheme createOfficeTheme() {
         ColorTheme theme = new ColorTheme("Office经典");
         theme.primaryColor = new Color(68, 114, 196);  // Office蓝
@@ -129,7 +114,6 @@ public class ColorTheme {
         theme.textColor = new Color(68, 68, 68);
         return theme;
     }
-    
     public static ColorTheme createModernTheme() {
         ColorTheme theme = new ColorTheme("现代简约");
         theme.primaryColor = new Color(91, 155, 213);
@@ -139,7 +123,6 @@ public class ColorTheme {
         theme.textColor = new Color(44, 62, 80);
         return theme;
     }
-    
     public static ColorTheme createElegantTheme() {
         ColorTheme theme = new ColorTheme("优雅灰");
         theme.primaryColor = new Color(112, 173, 71);
@@ -149,7 +132,6 @@ public class ColorTheme {
         theme.textColor = new Color(89, 89, 89);
         return theme;
     }
-    
     public static ColorTheme createTechTheme() {
         ColorTheme theme = new ColorTheme("科技蓝");
         theme.primaryColor = new Color(0, 176, 240);
@@ -159,7 +141,6 @@ public class ColorTheme {
         theme.textColor = new Color(31, 73, 125);
         return theme;
     }
-    
     public static ColorTheme createWarmTheme() {
         ColorTheme theme = new ColorTheme("暖色调");
         theme.primaryColor = new Color(237, 125, 49);
@@ -169,7 +150,6 @@ public class ColorTheme {
         theme.textColor = new Color(152, 72, 7);
         return theme;
     }
-    
     public static ColorTheme createCoolTheme() {
         ColorTheme theme = new ColorTheme("冷色调");
         theme.primaryColor = new Color(70, 130, 180);
@@ -179,7 +159,6 @@ public class ColorTheme {
         theme.textColor = new Color(25, 25, 112);
         return theme;
     }
-    
     public static ColorTheme createMinimalTheme() {
         ColorTheme theme = new ColorTheme("极简黑白");
         theme.primaryColor = new Color(64, 64, 64);
@@ -189,7 +168,6 @@ public class ColorTheme {
         theme.textColor = new Color(33, 33, 33);
         return theme;
     }
-    
     public static ColorTheme createVibrantTheme() {
         ColorTheme theme = new ColorTheme("活力彩虹");
         theme.primaryColor = new Color(255, 87, 87);
@@ -217,7 +195,6 @@ public class ColorTheme {
             createOrangeTheme(),
             createWarmTheme(),
             createCoolTheme(),
-            createDarkTheme(),
             createBusinessTheme(),
             createNatureTheme(),
             createMinimalTheme(),
@@ -231,25 +208,19 @@ public class ColorTheme {
     public static ColorTheme generateRandomTheme() {
         Random random = new Random();
         ColorTheme theme = new ColorTheme("随机主题 " + System.currentTimeMillis());
-        
         // 随机生成主色调
         float hue = random.nextFloat();
         theme.primaryColor = Color.getHSBColor(hue, 0.7f, 0.9f);
-        
         // 生成次要色（主色调的邻近色）
         float secondaryHue = (hue + 0.1f + random.nextFloat() * 0.1f) % 1.0f;
         theme.secondaryColor = Color.getHSBColor(secondaryHue, 0.4f, 0.9f);
-        
         // 生成强调色（主色调的对比色）
         float accentHue = (hue + 0.4f + random.nextFloat() * 0.2f) % 1.0f;
         theme.accentColor = Color.getHSBColor(accentHue, 0.8f, 1.0f);
-        
         // 背景色（浅色）
         theme.backgroundColor = Color.getHSBColor(hue, 0.1f, 0.98f);
-        
         // 文本色（深色）
         theme.textColor = Color.getHSBColor(hue, 0.3f, 0.2f);
-        
         return theme;
     }
     
@@ -258,28 +229,20 @@ public class ColorTheme {
      */
     public static ColorTheme generateThemeFromColor(Color baseColor, String themeName) {
         ColorTheme theme = new ColorTheme(themeName);
-        
-        // 将RGB转换为HSB
         float[] hsb = Color.RGBtoHSB(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), null);
         float baseHue = hsb[0];
         float baseSaturation = hsb[1];
         float baseBrightness = hsb[2];
-        
         theme.primaryColor = baseColor;
-        
         // 次要色：降低饱和度和亮度
         theme.secondaryColor = Color.getHSBColor(baseHue, baseSaturation * 0.6f, Math.min(1.0f, baseBrightness + 0.2f));
-        
         // 强调色：对比色
         float accentHue = (baseHue + 0.5f) % 1.0f;
         theme.accentColor = Color.getHSBColor(accentHue, baseSaturation, baseBrightness);
-        
         // 背景色：非常浅的主色调
         theme.backgroundColor = Color.getHSBColor(baseHue, baseSaturation * 0.1f, 0.98f);
-        
         // 文本色：深色版本
         theme.textColor = Color.getHSBColor(baseHue, baseSaturation * 0.8f, Math.max(0.1f, baseBrightness * 0.3f));
-        
         return theme;
     }
     

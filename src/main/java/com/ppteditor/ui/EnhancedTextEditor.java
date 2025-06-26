@@ -488,7 +488,6 @@ public class EnhancedTextEditor extends JDialog {
         // 获取当前段落
         int caretPos = textPane.getCaretPosition();
         Element paragraph = document.getParagraphElement(caretPos);
-        
         // 创建段落样式
         SimpleAttributeSet paragraphAttrs = new SimpleAttributeSet();
         switch (alignment) {
@@ -502,31 +501,25 @@ public class EnhancedTextEditor extends JDialog {
                 StyleConstants.setAlignment(paragraphAttrs, StyleConstants.ALIGN_RIGHT);
                 break;
         }
-        
         // 应用段落样式
         document.setParagraphAttributes(paragraph.getStartOffset(), 
                                       paragraph.getEndOffset() - paragraph.getStartOffset(), 
                                       paragraphAttrs, false);
-        
         // 更新工具栏状态
         updateToolbarState();
     }
     
     private void updateToolbarState() {
         int caretPos = textPane.getCaretPosition();
-        
         // 获取字符属性
         AttributeSet attrs = textPane.getInputAttributes();
-        
         // 更新样式按钮状态
         boldButton.setBackground(StyleConstants.isBold(attrs) ? Color.LIGHT_GRAY : null);
         italicButton.setBackground(StyleConstants.isItalic(attrs) ? Color.LIGHT_GRAY : null);
         underlineButton.setBackground(StyleConstants.isUnderline(attrs) ? Color.LIGHT_GRAY : null);
-        
         // 获取段落属性
         AttributeSet paraAttrs = document.getParagraphElement(caretPos).getAttributes();
         int align = StyleConstants.getAlignment(paraAttrs);
-        
         // 更新对齐按钮状态
         alignLeftButton.setBackground(align == StyleConstants.ALIGN_LEFT ? Color.LIGHT_GRAY : null);
         alignCenterButton.setBackground(align == StyleConstants.ALIGN_CENTER ? Color.LIGHT_GRAY : null);
@@ -538,16 +531,13 @@ public class EnhancedTextEditor extends JDialog {
             // 获取文档内容并转换为文本段
             String fullText = document.getText(0, document.getLength());
             List<TextSegment> segments = new ArrayList<>();
-            
             // 解析样式化文档
             Element root = document.getDefaultRootElement();
             parseElementToSegments(root, segments);
-            
             // 获取第一段的对齐方式作为文本元素的对齐方式
             Element firstParagraph = document.getParagraphElement(0);
             AttributeSet paraAttrs = firstParagraph.getAttributes();
             int swingAlign = StyleConstants.getAlignment(paraAttrs);
-            
             // 转换为TextStyle对齐方式
             int textAlignment = TextStyle.ALIGN_LEFT; // 默认左对齐
             switch (swingAlign) {
@@ -561,18 +551,14 @@ public class EnhancedTextEditor extends JDialog {
                     textAlignment = TextStyle.ALIGN_RIGHT;
                     break;
             }
-            
             // 直接更新文本元素，不使用命令（因为命令会重置文本段）
             String oldText = textElement.getText();
-            
             // 更新文本内容
             textElement.setText(fullText);
-            
             // 更新文本样式的对齐方式
             if (textElement.getStyle() != null) {
                 textElement.getStyle().setAlignment(textAlignment);
             }
-            
             // 如果有分段信息，设置分段
             if (!segments.isEmpty()) {
                 textElement.setTextSegments(segments);
@@ -580,10 +566,8 @@ public class EnhancedTextEditor extends JDialog {
             } else {
                 textElement.setUseSegments(false);
             }
-            
             confirmed = true;
             dispose();
-            
         } catch (BadLocationException e) {
             JOptionPane.showMessageDialog(this, "保存文本时出错: " + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
         }
