@@ -245,8 +245,7 @@ public class MainWindow extends JFrame {
         slideCanvas = new SlideCanvas();
         slidePanel = new SlidePanel();
         templatePanel = new TemplatePanel(this);
-        // 删除propertyPanel，不再需要右边栏
-        
+
         // 设置组件的最小尺寸，确保可见性
         slidePanel.setMinimumSize(new Dimension(150, 250));
         templatePanel.setMinimumSize(new Dimension(150, 200));
